@@ -178,8 +178,7 @@ class MaxAssistant:
     async def _input_command(self):
         """Get input from the user asynchronously."""
         try:
-            loop = asyncio.get_running_loop()
-            result = await loop.run_in_executor(None, input, "Type your command: ")
+            result = await asyncio.to_thread(input, "Type your command: ")
             self.logger.info(f"User input: {result}")
             return result
         except asyncio.CancelledError:
@@ -217,11 +216,6 @@ class MaxAssistant:
         await self._speak("Waking up.")
         self.is_asleep = False
         self.logger.info("Assistant woke up.")
-
-    async def _run_in_executor(self, func, *args):
-        """Run blocking operations in an executor."""
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, func, *args)
 
     async def shutdown(self):
         """Gracefully shut down the assistant."""

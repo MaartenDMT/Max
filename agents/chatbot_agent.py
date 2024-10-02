@@ -40,9 +40,7 @@ class ChatbotAgent:
             available_modes = ", ".join(self.llm.keys())
             await self._speak(f"Please select the LLM mode: {available_modes}")
 
-            mode = await asyncio.get_event_loop().run_in_executor(
-                None, input, "LLM mode: "
-            )
+            mode = await asyncio.to_thread(input, "LLM mode: ")
 
             if mode in self.llm:
                 self.current_mode = mode
@@ -60,8 +58,8 @@ class ChatbotAgent:
             await self._speak(
                 f"Please provide your question or content for the {self.current_mode.capitalize()}AI."
             )
-            user_input = await asyncio.get_event_loop().run_in_executor(
-                None, input, f"{self.current_mode.capitalize()} input: "
+            user_input = await asyncio.to_thread(
+                input, f"{self.current_mode.capitalize()} input: "
             )
 
             # Delegate to the LLM associated with the current mode

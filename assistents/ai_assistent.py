@@ -123,16 +123,14 @@ class AIAssistant:
         """Handle YouTube summarization task asynchronously."""
         try:
             await self._speak("Please provide the YouTube video URL.")
-            video_url = await asyncio.get_event_loop().run_in_executor(
-                None, input, "YouTube video URL: "
-            )
+            video_url = await asyncio.to_thread(input, "YouTube video URL: ")
 
             if video_url:
                 self.logger.info(f"Received YouTube URL: {video_url}")
 
                 # Check if the URL is valid and summarize the video using VideoProcessingAgent
-                full_text, summary = await asyncio.get_event_loop().run_in_executor(
-                    None, self.youtube_agent.handle_user_input, video_url
+                full_text, summary = await asyncio.to_thread(
+                    self.youtube_agent.handle_user_input, video_url
                 )
 
                 if not full_text or not summary:
@@ -170,9 +168,7 @@ class AIAssistant:
         try:
             # Step 1: Ask for the URL
             await self._speak("Please provide the website URL.")
-            website_url = await asyncio.get_event_loop().run_in_executor(
-                None, input, "Website URL: "
-            )
+            website_url = await asyncio.to_thread(input, "Website URL: ")
 
             if website_url:
                 self.logger.info(f"Received website URL: {website_url}")
@@ -180,16 +176,14 @@ class AIAssistant:
 
                 # Step 2: Ask for the question related to the website
                 await self._speak("What question do you want to ask about the website?")
-                question = await asyncio.get_event_loop().run_in_executor(
-                    None, input, "Question: "
-                )
+                question = await asyncio.to_thread(input, "Question: ")
 
                 if question:
                     self.logger.info(f"Received question for website: {question}")
 
                     # Use WebPageSummarizer to summarize the website with the provided question
-                    result = await asyncio.get_event_loop().run_in_executor(
-                        None, self.web_agent.summarize_website, website_url, question
+                    result = await asyncio.to_thread(
+                        self.web_agent.summarize_website, website_url, question
                     )
 
                     # Step 3: Provide the summary and handle any errors
@@ -218,17 +212,15 @@ class AIAssistant:
         try:
             # Step 1: Ask for the research category
             await self._speak("Please provide the research category.")
-            category = await asyncio.get_event_loop().run_in_executor(
-                None, input, "Research category: "
-            )
+            category = asyncio.to_thread(input, "Research category: ")
 
             if category:
                 self.logger.info(f"Received research category: {category}")
                 await self._speak(f"Setting up research for category: {category}")
 
                 # Use the WebPageResearchAgent to set up research
-                result = await asyncio.get_event_loop().run_in_executor(
-                    None, self.web_agent.handle_research_category
+                result = await asyncio.to_thread(
+                    self.web_agent.handle_research_category
                 )
 
                 if result:
@@ -250,19 +242,17 @@ class AIAssistant:
         """Handle music loop generation task using the Music agent."""
         try:
             await self._speak("Making a music loop...")
-            prompt = await asyncio.get_event_loop().run_in_executor(
-                None, input, "What kind of music loop do you want: "
+            prompt = await asyncio.to_thread(
+                input, "What kind of music loop do you want: "
             )
-            bpm = await asyncio.get_event_loop().run_in_executor(
-                None, input, "What BPM do you want: "
-            )
+            bpm = await asyncio.to_thread(input, "What BPM do you want: ")
 
             if prompt and bpm:
                 self.logger.info(
                     f"Music loop request with prompt: {prompt} and BPM: {bpm}"
                 )
-                output = await asyncio.get_event_loop().run_in_executor(
-                    None, self.music_agent.create_music_loop, prompt, int(bpm)
+                output = await asyncio.to_thread(
+                    self.music_agent.create_music_loop, prompt, int(bpm)
                 )
                 if output:
                     await self._speak(f"Music loop generated: {output}")
@@ -286,9 +276,7 @@ class AIAssistant:
         try:
             # Ask the user for the text they want to summarize
             await self._speak("Please provide the text you want to summarize.")
-            text_to_summarize = await asyncio.get_event_loop().run_in_executor(
-                None, input, "Text to summarize: "
-            )
+            text_to_summarize = await asyncio.to_thread(input, "Text to summarize: ")
 
             if text_to_summarize:
                 summary_result = await self.research_agent.handle_text_summarization(

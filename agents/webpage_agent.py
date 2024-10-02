@@ -23,9 +23,7 @@ class WebsiteProcessingAgent:
         """
         try:
             await self._speak("Please provide the website URL.")
-            website_url = await asyncio.get_event_loop().run_in_executor(
-                None, input, "Website URL: "
-            )
+            website_url = await asyncio.to_thread(input, "Website URL: ")
 
             if website_url:
                 self.current_url = website_url
@@ -44,9 +42,7 @@ class WebsiteProcessingAgent:
 
         try:
             await self._speak("What question do you want to ask about the website?")
-            question = await asyncio.get_event_loop().run_in_executor(
-                None, input, "Question: "
-            )
+            question = await asyncio.to_thread(input, "Question: ")
 
             if question:
                 # Proceed to summarize the web page with the question
@@ -78,9 +74,7 @@ class WebsiteProcessingAgent:
         try:
             # Ask the user for the research category (e.g., "book_research_urls")
             await self._speak("Please provide the research category.")
-            category = await asyncio.get_event_loop().run_in_executor(
-                None, input, "Research category: "
-            )
+            category = await asyncio.to_thread(input, "Research category: ")
 
             if category:
                 # Set up the research process for the specified category
@@ -99,9 +93,7 @@ class WebsiteProcessingAgent:
         try:
             # Ask the user for the research question
             await self._speak("Please provide your research question.")
-            question = await asyncio.get_event_loop().run_in_executor(
-                None, input, "Research question: "
-            )
+            question = await asyncio.to_thread(input, "Research question: ")
 
             if question:
                 # Process the research question using AIWebPageResearchAgent
