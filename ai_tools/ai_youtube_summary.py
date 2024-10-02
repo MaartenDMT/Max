@@ -3,9 +3,10 @@ import re
 
 import yt_dlp
 from langchain.prompts import PromptTemplate
-from langchain_ollama import ChatOllama
-from utils.loggers import LoggerSetup
 from langchain_core.messages import AIMessage
+from langchain_ollama import ChatOllama
+
+from utils.loggers import LoggerSetup
 
 
 class YouTubeSummarizer:
@@ -81,22 +82,48 @@ class YouTubeSummarizer:
         except Exception as e:
             self.logger.error(f"Error during audio transcription: {e}")
 
+    def split_text(self, text, max_chunk_size=4000):
+        """Split text into chunks suitable for LLM processing."""
+        import re
+
+        # Split the text into sentences
+        sentences = re.split(r"(?<=[.!?])\s+", text)
+        chunks = []
+        current_chunk = ""
+
+        for sentence in sentences:
+            # Estimate the token length (approximate 1 token ~ 4 characters)
+            estimated_tokens = len(current_chunk) // 4 + len(sentence) // 4
+            if estimated_tokens <= max_chunk_size:
+                current_chunk += " " + sentence
+            else:
+                chunks.append(current_chunk.strip())
+                current_chunk = sentence
+
+        if current_chunk:
+            chunks.append(current_chunk.strip())
+
+        return chunks
+
     def create_chain(self, summary_length="detailed"):
         """Create a summarization chain with summary length control."""
         try:
             if summary_length == "brief":
-                prompt_text = (
-                    "Provide a brief summary based on the following content: {context}"
-                )
+                prompt_text = "Provide a brief summary based on the following content:\n\n{context}"
             else:
                 prompt_text = """
-                Read the following content and provide a detailed summary that addresses the following key points:
-                1. ## Core Topics: What are the main subjects or topics being discussed?
-                2. ## Key Arguments: Highlight the most important arguments made and the supporting evidence or details.
-                3. ## Insights and Takeaways: What insights, lessons, or conclusions are emphasized?
-                4. ## Examples and Data: Provide relevant examples or data points that illustrate or support the content.
-                5. ## Summarize Clearly in x sections: Make sure the summary is well-organized and clearly written in sections.
-                Content: {context}
+                You are an expert summarizer. Read the following transcript of a conversation and provide a detailed summary that addresses the following key points:
+
+                1. **Core Topics**: What are the main subjects or topics being discussed?
+                2. **Key Arguments**: Highlight the most important arguments made and the supporting evidence or details.
+                3. **Insights and Takeaways**: What insights, lessons, or conclusions are emphasized?
+                4. **Examples and Data**: Provide relevant examples or data points that illustrate or support the content.
+                5. **Organized Summary**: Ensure the summary is well-organized and clearly written in sections.
+
+                Please focus on summarizing the content without adding any additional information or taking any actions.
+
+                Transcript:
+                {context}
                 """
 
             # Define the template using PromptTemplate
@@ -112,19 +139,17 @@ class YouTubeSummarizer:
         except Exception as e:
             self.logger.error(f"Error creating chain: {e}")
 
-    def process_chat(self, chain, transcribed_text):
-        """Process the summarization using the chain and return a response."""
+    def process_chat(self, chain, text_chunk):
+        """Process the summarization for a text chunk and return a response."""
         try:
-            response = chain.invoke({transcribed_text})
-
-            # Log the response for debugging
-            self.logger.info(f"Raw response from LLM: {response}")
-
-            # If the response is an AIMessage, extract the content
-            if isinstance(response, AIMessage):
-                return response.content  # Extract the string content from AIMessage
-            return response
-
+            response = chain.invoke({"context": text_chunk})
+            # Ensure that response is extracted correctly
+            if isinstance(response, str):
+                return response.strip()
+            elif isinstance(response, AIMessage):
+                return response.content.strip()
+            else:
+                return str(response).strip()
         except Exception as e:
             self.logger.error(f"Error during summarization: {e}")
             return None
@@ -146,7 +171,7 @@ class YouTubeSummarizer:
             file.write(f"# {title}\n\n")
             file.write(text)
 
-        print(f"Markdown file saved: {output_file}")
+        self.logger.info(f"Markdown file saved: {output_file}")
 
     def summarize_youtube(self, video_url, summary_length="detailed"):
         """Main method to summarize a YouTube video."""
@@ -160,7 +185,7 @@ class YouTubeSummarizer:
                 self.output_path, transcription_filename
             )
 
-            # Step 1: Check if transcription file exists, skip downloading if found
+            # Step 1: Get or create the transcription
             if os.path.exists(transcription_filepath):
                 self.logger.info(
                     f"Transcription file already exists: {transcription_filepath}"
@@ -168,7 +193,6 @@ class YouTubeSummarizer:
                 with open(transcription_filepath, "r", encoding="utf-8") as file:
                     transcribed_text = file.read()
             else:
-                # Download and transcribe the video if transcription does not exist
                 self.download_audio(video_url)
                 transcribed_text = self.transcribe_audio()
 
@@ -184,26 +208,50 @@ class YouTubeSummarizer:
                     f"Full transcription saved to {transcription_filepath}"
                 )
 
-            # Step 2: Create a summarization chain and summarize the content
+            # Step 2: Split the transcription into chunks
+            max_chunk_size = 4000  # Adjust based on your LLM's context window
+            chunks = self.split_text(transcribed_text, max_chunk_size)
+
+            self.logger.info(f"Transcription split into {len(chunks)} chunks.")
+
+            # Step 3: Create the summarization chain
             chain = self.create_chain(summary_length=summary_length)
             if not chain:
                 self.logger.error("Failed to create summarization chain.")
                 return transcribed_text, "Summarization chain creation failed."
 
-            summary = self.process_chat(chain, transcribed_text)
+            # Step 4: Summarize each chunk
+            summaries = []
+            for idx, chunk in enumerate(chunks):
+                self.logger.info(f"Summarizing chunk {idx + 1}/{len(chunks)}")
+                summary = self.process_chat(chain, chunk)
+                if summary:
+                    summaries.append(f"### Summary of Part {idx + 1}\n{summary}\n")
+                else:
+                    self.logger.error(f"Summarization failed for chunk {idx + 1}.")
 
-            if not summary:
-                self.logger.error("Summarization failed. No response from LLM.")
+            if not summaries:
+                self.logger.error("No summaries were generated.")
                 return transcribed_text, "Summarization failed."
 
-            # Step 3: Save the summary
+            # Step 5: Combine summaries
+            combined_summary = "\n".join(summaries)
+
+            # Optional: Summarize the combined summaries to create an overall summary
+            overall_summary = self.process_chat(chain, combined_summary)
+            if overall_summary:
+                combined_summary = (
+                    f"# Overall Summary\n{overall_summary}\n\n{combined_summary}"
+                )
+
+            # Step 6: Save the combined summary
             summary_filename = f"{cleaned_title}_summary.md"
-            self.save_md(summary, summary_filename, video_info["title"])
+            self.save_md(combined_summary, summary_filename, video_info["title"])
             self.logger.info(f"Summary saved to {summary_filename}")
 
-            # Step 4: Return both full text and summary
+            # Step 7: Return both full text and summary
             self.logger.info("Summarization successfully completed.")
-            return transcribed_text, summary
+            return transcribed_text, combined_summary
 
         except Exception as e:
             self.logger.error(f"Error during YouTube summarization: {e}")

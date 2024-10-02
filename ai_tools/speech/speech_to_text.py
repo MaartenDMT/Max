@@ -1,16 +1,18 @@
+import asyncio
 import os
 import tempfile
-import threading
 import time
+
 
 import numpy as np
 import sounddevice as sd
 import whisper
 from faster_whisper import WhisperModel
+from prompt_toolkit import Application
+from prompt_toolkit.key_binding import KeyBindings
 from pynput import keyboard
 from scipy.io.wavfile import write
 from torch import cuda
-from queue import Queue
 
 from utils.loggers import LoggerSetup
 
@@ -26,12 +28,10 @@ class TranscribeFastModel:
         self.model_size = model_size
         self.sample_rate = sample_rate
         self.model = WhisperModel(model_size, device=device, compute_type=compute_type)
-        self.is_recording = False
         self.ctrl_pressed = False
-        self._stop_event = threading.Event()
-
-        # Queue to handle start/stop recording signals
-        self.record_queue = Queue()
+        self._stop_event = asyncio.Event()
+        self.is_recording = False
+        self.app = None  # Will hold the prompt_toolkit Application
 
         # Setup logger
         log_setup = LoggerSetup()
@@ -41,89 +41,45 @@ class TranscribeFastModel:
 
         self.logger.info("Transcribe Fast Model initialized with model: %s", model_size)
 
-        # Start the keyboard listener in a non-blocking manner
-        self.listener_thread = threading.Thread(target=self.start_keyboard_listener)
-        self.listener_thread.daemon = True
-        self.listener_thread.start()
-
     def stop(self):
         """Signal to stop recording and shutdown the listener."""
         self.logger.info("Stop signal received.")
         self._stop_event.set()
+        if self.app and self.app.is_running:
+            self.app.exit()
 
-    def on_press(self, key):
-        """Handle key press event."""
-        try:
-            if key == keyboard.Key.ctrl_r:
-                self.ctrl_pressed = True
-            if (
-                key == keyboard.Key.space
-                and self.ctrl_pressed
-                and not self.is_recording
-            ):
-                self.is_recording = True
-                self.logger.info("Started recording.")
-                self.record_queue.put(True)  # Signal to start recording
-        except Exception as e:
-            self.logger.error(f"Error in on_press: {e}")
-
-    def on_release(self, key):
-        """Handle key release event."""
-        try:
-            if key == keyboard.Key.ctrl_r:
-                self.ctrl_pressed = False
-
-            if key == keyboard.Key.space and self.is_recording:
-                self.is_recording = False
-                self.logger.info("Stopped recording.")
-                self.record_queue.put(False)  # Signal to stop recording
-                return False  # Stop listener when recording is finished
-        except Exception as e:
-            self.logger.error(f"Error in on_release: {e}")
-
-    def start_keyboard_listener(self):
-        """Start the keyboard listener in a non-blocking manner."""
-        self.logger.info("Keyboard listener started.")
-        with keyboard.Listener(
-            on_press=self.on_press, on_release=self.on_release
-        ) as listener:
-            listener.join()
-
-    def record_audio(self, timeout=60):
-        """Record audio while the hotkey (CTRL + SPACE) is pressed, with a timeout."""
+    async def record_audio(self, timeout=60):
+        """Record audio asynchronously."""
         try:
             self.logger.info("Waiting for recording to start.")
             recording = np.array([], dtype="float64").reshape(0, 2)
             frames_per_buffer = int(self.sample_rate * 0.1)
             start_time = time.time()
 
-            while (
-                not self._stop_event.is_set() and (time.time() - start_time) < timeout
-            ):
-                if not self.record_queue.empty():
-                    should_record = self.record_queue.get()
+            # Wait until recording starts
+            while not self.is_recording and not self._stop_event.is_set():
+                await asyncio.sleep(0.1)
+                if (time.time() - start_time) > timeout:
+                    self.logger.warning("Recording timeout waiting for start.")
+                    return recording
 
-                    if should_record:
-                        # Start capturing audio
-                        while self.is_recording and not self._stop_event.is_set():
-                            chunk = sd.rec(
-                                frames_per_buffer,
-                                samplerate=self.sample_rate,
-                                channels=2,
-                                dtype="float64",
-                            )
-                            sd.wait()
-                            recording = np.vstack([recording, chunk])
-                        break
+            # Start capturing audio
+            while self.is_recording and not self._stop_event.is_set():
+                chunk = await asyncio.to_thread(
+                    sd.rec,
+                    frames_per_buffer,
+                    samplerate=self.sample_rate,
+                    channels=2,
+                    dtype="float64",
+                )
+                await asyncio.to_thread(sd.wait)
+                recording = np.vstack([recording, chunk])
 
-            if len(recording) > 0:
-                self.logger.info("Recording captured with %d samples.", len(recording))
-                return recording
-            else:
-                self.logger.warning("No audio was captured.")
-                return np.array([], dtype="float64").reshape(0, 2)
+            self.logger.info("Recording completed.")
+            return recording
         except Exception as e:
             self.logger.error(f"An error occurred during audio recording: {e}")
+            return np.array([], dtype="float64").reshape(0, 2)
 
     def save_temp_audio(self, recording):
         """Save the recorded audio to a temporary file."""
@@ -154,24 +110,47 @@ class TranscribeFastModel:
         except Exception as e:
             self.logger.error(f"Error during transcription: {e}")
 
-    def run(self):
+    async def run(self):
         """Run the recording and transcription process."""
+        transcription = ""
         try:
-            self.logger.info("Starting recording and transcription process.")
-            self._stop_event.clear()
-            recording = self.record_audio()
+            kb = KeyBindings()
+
+            @kb.add("c-d")
+            def _(event):
+                """Toggle recording on Ctrl + b press."""
+                self.is_recording = not self.is_recording
+                if self.is_recording:
+                    self.logger.info("Started recording.")
+                else:
+                    self.logger.info("Stopped recording.")
+                    # Exit the Application when recording stops
+                    event.app.exit()
+
+            self.app = Application(key_bindings=kb, full_screen=False)
+
+            # Run the Application and record_audio concurrently
+            recording_task = asyncio.create_task(self.record_audio())
+            await self.app.run_async()  # This will block until app.exit() is called
+
+            # After the Application exits, await the recording_task
+            recording = await recording_task
 
             if len(recording) == 0:
                 self.logger.warning("No audio was captured.")
                 return ""
 
-            transcription = self.transcribe(
-                audio_filepath=self.save_temp_audio(recording)
+            # Transcribe the recording
+            transcription = await asyncio.to_thread(
+                self.transcribe, audio_filepath=self.save_temp_audio(recording)
             )
             return transcription.lower()
         except Exception as e:
             self.logger.error(f"An error occurred in the run method: {e}")
             return ""
+        finally:
+            if self.app and self.app.is_running:
+                self.app.exit()
 
 
 class TranscribeSlowModel:

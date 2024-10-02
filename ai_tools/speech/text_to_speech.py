@@ -1,5 +1,5 @@
 import os
-
+import asyncio
 import pyttsx3
 from pydub import AudioSegment
 from pydub.playback import play
@@ -45,54 +45,62 @@ class TTSModel:
         self.use_good_model = False
         self.logger.info("Switched to the bad model (pyttsx3).")
 
-    def tts_speak(self, text="This is a text to speech bot", path=None):
+    async def tts_speak(self, text="This is a text to speech bot", path=None):
         """Generate and play speech from text based on the selected model."""
         try:
             if self.use_good_model:
                 self.logger.info(f"Using good model (TTS) to speak: {text}")
-                self._speak_good_model(text, path)
+                await self._speak_good_model(text, path)
             else:
                 self.logger.info(f"Using bad model (pyttsx3) to speak: {text}")
-                self._speak_bad_model(text)
+                await self._speak_bad_model(text)
         except Exception as e:
             self.logger.error(f"Error in tts_speak: {e}")
 
-    def _speak_good_model(self, text, path=None):
-        """Generate speech using the good model (TTS) and play it."""
+    async def _speak_good_model(self, text, path=None):
+        """Generate speech using the good model (TTS) and play it asynchronously."""
         if path is None:
             path = self.temp_audio
         try:
             self.logger.info(f"Generating speech using TTS model for text: {text}")
-            self.tts.tts_to_file(
-                text=text,
-                file_path=path,
-                speaker=self.default_speaker,
-                language=self.default_language,
-                split_sentences=True,
+            await asyncio.to_thread(
+                self.tts.tts_to_file,
+                text,  # The first argument (text)
+                self.default_speaker,  # The second argument (speaker)
+                self.default_language,  # The third argument (language)
+                None,  # speaker_wav (None by default)
+                None,  # emotion (None by default)
+                1,  # speed (default 1)
+                None,  # pipe_out (None by default)
+                path,  # file_path (output file path)
+                True,  # split_sentences (default True)
             )
-            self.play_audio(path)
+            await self._play_audio(path)
             self.logger.info(f"Speech generated and played for text: {text}")
         except Exception as e:
             self.logger.error(f"Error in _speak_good_model: {e}")
 
-    def _speak_bad_model(self, text):
-        """Generate speech using the bad model (pyttsx3) and speak it."""
+    async def _speak_bad_model(self, text):
+        """Generate speech using the bad model (pyttsx3) asynchronously."""
         try:
             self.logger.info(f"Speaking using pyttsx3 for text: {text}")
-            self.bad_tts_engine.say(text)
-            self.bad_tts_engine.runAndWait()
+            await asyncio.to_thread(self._run_pyttsx3, text)
             self.logger.info(f"Speech completed for text: {text}")
         except Exception as e:
             self.logger.error(f"Error in _speak_bad_model: {e}")
 
-    def play_audio(self, path=None):
-        """Play the generated audio from a file."""
+    def _run_pyttsx3(self, text):
+        """Blocking pyttsx3 call."""
+        self.bad_tts_engine.say(text)
+        self.bad_tts_engine.runAndWait()
+
+    async def _play_audio(self, path=None):
+        """Play the generated audio from a file asynchronously."""
         if path is None:
             path = self.temp_audio
         try:
             self.logger.info(f"Playing audio file: {path}")
-            sound = AudioSegment.from_wav(path)
-            play(sound)
+            await asyncio.to_thread(self._play_audio_file, path)
             self.logger.info(f"Audio playback finished for file: {path}")
         except Exception as e:
             self.logger.error(f"Error in play_audio: {e}")
@@ -100,3 +108,8 @@ class TTSModel:
             if os.path.exists(path):
                 os.remove(path)
                 self.logger.info(f"Temporary audio file deleted: {path}")
+
+    def _play_audio_file(self, path):
+        """Blocking function to play audio file."""
+        sound = AudioSegment.from_wav(path)
+        play(sound)

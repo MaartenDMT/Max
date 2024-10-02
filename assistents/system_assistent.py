@@ -29,6 +29,17 @@ class SystemAssistant:
         # Log initialization
         self.logger.info("System Assistant initialized.")
 
+    async def _handle_command(self, query):
+        """Handle system commands based on user query."""
+        command_key = query.strip().lower()
+        if command_key in self.commands:
+            command_func = self.commands[command_key]
+            self.logger.info(f"Executing system command: {command_key}")
+            await command_func(query)
+        else:
+            self.logger.warning(f"Unknown system command: {command_key}")
+            await self._speak(f"Sorry, I don't know how to handle '{query}'.")
+
     # System Control Functions
     async def _shutdown(self, query):
         """Shut down the system."""

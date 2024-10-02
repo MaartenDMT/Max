@@ -106,12 +106,13 @@ class MaxAssistant:
                 await self._speak("Switching to bad model")
                 self.set_bad_model()
             elif self._is_system_command(query):
-                if "rust" in query:
-                    await self._sleep(query)
-                else:
-                    await self.system_assistant._handle_command(query)
+                await self.system_assistant._handle_command(query)
             elif self._is_ai_command(query):
                 await self.ai_assistant._determine_task(query)
+            elif "rust" in query:
+                await self._sleep(query)
+            elif "wake up" in query:
+                await self._wake_up(query)
             else:
                 self.logger.warning(f"Unknown command: {query}")
         except Exception as e:
@@ -120,25 +121,27 @@ class MaxAssistant:
     async def _get_command(self):
         """Retrieve command from the user via input or voice asynchronously."""
         try:
-            input_task = asyncio.create_task(self._input_command())
-            listen_task = asyncio.create_task(self._listen_for_voice_command())
+            input_task = asyncio.create_task(self._input_command(), name="Input task")
+            listen_task = asyncio.create_task(
+                self._listen_for_voice_command(), name="Voice in task"
+            )
 
             done, pending = await asyncio.wait(
                 [listen_task, input_task], return_when=asyncio.FIRST_COMPLETED
             )
 
-            # Cancel the pending tasks safely without recursion
+            # Cancel the pending tasks
             for task in pending:
-                if not task.done():
-                    task.cancel()
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    self.logger.info(f"{task.get_name()} was cancelled.")
 
             # Retrieve the result of the completed task
             completed_task = next(iter(done))
             return completed_task.result()
 
-        except asyncio.CancelledError:
-            self.logger.warning("Task was cancelled.")
-            return ""
         except Exception as e:
             self.logger.error(f"Error in _get_command: {e}")
             return ""
@@ -146,7 +149,7 @@ class MaxAssistant:
     async def _speak(self, audio):
         """Speak asynchronously using the selected model."""
         try:
-            await self._run_in_executor(self.tts_model.tts_speak, audio)
+            await self.tts_model.tts_speak(audio)
             self.logger.info(f"Spoken: {audio}")
         except Exception as e:
             self.logger.error(f"Error in _speak: {e}")
@@ -154,9 +157,12 @@ class MaxAssistant:
     async def _listen(self):
         """Listen asynchronously using the Fastwhisper model."""
         try:
-            result = await asyncio.to_thread(self.run_listen)
+            result = await self.transcribe.run()
             self.logger.info(f"Listening result: {result}")
             return result
+        except asyncio.CancelledError:
+            self.logger.info("Listening task was cancelled.")
+            return ""
         except Exception as e:
             self.logger.error(f"Error in _listen: {e}")
             return ""
@@ -172,10 +178,13 @@ class MaxAssistant:
     async def _input_command(self):
         """Get input from the user asynchronously."""
         try:
-            # Run the blocking input function in a separate thread to make it non-blocking
-            result = await asyncio.to_thread(input, "Type your command: ")
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(None, input, "Type your command: ")
             self.logger.info(f"User input: {result}")
             return result
+        except asyncio.CancelledError:
+            self.logger.info("Input task was cancelled.")
+            return ""
         except EOFError:
             self.logger.error("Input stream closed.")
             return "exit"
@@ -203,7 +212,7 @@ class MaxAssistant:
         self.is_asleep = True
         self.logger.info("Assistant is now asleep.")
 
-    async def _wake_up(self):
+    async def _wake_up(self, query):
         """Wake up the assistant."""
         await self._speak("Waking up.")
         self.is_asleep = False
@@ -219,7 +228,9 @@ class MaxAssistant:
         self.logger.info("Shutting down assistants...")
 
         # Stop any ongoing recording
-        self.transcribe.stop()
+        self.transcribe.stop()  # Close the prompt_toolkit application if it's running
+        if self.transcribe.app and self.transcribe.app.is_running:
+            self.transcribe.app.exit()
 
         # Ensure we are working with the running event loop
         try:
