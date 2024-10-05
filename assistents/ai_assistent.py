@@ -8,6 +8,7 @@ from agents.webpage_agent import WebsiteProcessingAgent
 from ai_tools.speech.app_speech import SpeechApp
 from agents.writer_agent import AIWriterAgent
 from utils.loggers import LoggerSetup
+from utils.system_commands import get_ai_commands
 
 
 class AIAssistant:
@@ -33,8 +34,46 @@ class AIAssistant:
         # llm mode
         self.llm_mode = None
 
+        # Setup AI-related commands
+        self.commands = get_ai_commands(self)
+
         # Log initialization
         self.logger.info("AI Assistant initialized.")
+
+    async def handle_command(self, query):
+        """Handle AI commands based on user query."""
+        command_key = query.strip().lower()
+
+        # Now execute the command after loading the agent dynamically
+        if command_key in self.commands:
+            # Dynamically load the agent before executing the command
+            await self._load_agent_for_command(command_key)
+
+            command_func = self.commands[command_key]
+            self.logger.info(f"Executing AI command: {command_key}")
+            await command_func(query)
+        else:
+            self.logger.warning(f"Unknown AI command: {command_key}")
+            await self._speak(f"Sorry, I don't know how to handle '{query}'.")
+
+    async def _load_agent_for_command(self, command_key):
+        """Load the appropriate agent based on the command key."""
+        if "youtube" in command_key:
+            self._load_agent("youtube")
+        elif "website" in command_key:
+            self._load_agent("website")
+        elif "music loop" in command_key:
+            self._load_agent("music")
+        elif "research" in command_key:
+            self._load_agent("research")
+        elif (
+            "critique" in command_key
+            or "reflect" in command_key
+            or "chatbot" in command_key
+        ):
+            self._load_agent("chatbot")
+        elif "write" in command_key or "story" in command_key or "book" in command_key:
+            self._load_agent("writer assistent")
 
     def _load_agent(self, agent_type):
         """Load the specific agent when it's first needed."""
@@ -54,41 +93,8 @@ class AIAssistant:
             self.chatbot_agent = ChatbotAgent()  # Load ChatbotAgent
             self.logger.info("ChatbotAgent loaded.")
         elif agent_type == "writer assistent" and not hasattr(self, "writer_agent"):
-            self.writer_agent = AIWriterAgent()  # Load AIWriterAssistant
+            self.writer_agent = AIWriterAgent(self._speak)  # Load AIWriterAssistant
             self.logger.info("AIWriterAssistant loaded.")
-
-    async def _determine_task(self, query):
-        """Determine which task to execute based on the user's input."""
-        try:
-            if "youtube" in query:
-                self.logger.info("YouTube task detected.")
-                self._load_agent("youtube")
-                await self._summarize_youtube(query)
-            elif "website" in query or "site" in query:
-                self.logger.info("Website task detected.")
-                self._load_agent("website")
-                await self._learn_site(query)
-            elif "music loop" in query:
-                self.logger.info("Music loop task detected.")
-                self._load_agent("music")
-                await self._make_loop(query)
-            elif "research" in query:
-                self.logger.info("Research task detected.")
-                self._load_agent("research")
-                await self._handle_research(query)
-            elif "critique" in query or "reflect" in query or "chatbot" in query:
-                self._load_agent("chatbot")
-                self.logger.info("Chatbot or AI task detected.")
-                await self._handle_chatbot(query)  # Use ChatbotAgent for these tasks
-            elif "write" in query or "story" in query or "book" in query:
-                self.logger.info("Writing assistent task detected.")
-                self._load_agent("writer assistent")  # Load the AIWriterAssistant
-                await self._handle_writer_task(query)  # Use AIWriterAssistant
-            else:
-                self.logger.warning(f"Unknown task for query: {query}")
-                await self._unknown_task(query)
-        except Exception as e:
-            self.logger.error(f"Error determining task: {str(e)}")
 
     def set_llm_mode(self, mode=None):
         """Set the LLM mode in ChatbotAgent (e.g., critique, reflecting)."""
@@ -106,18 +112,6 @@ class AIAssistant:
             self.logger.info("Invalid mode selected, no LLM mode enabled.")
             return "Invalid mode selected."
 
-    async def _handle_writer_task(self, query):
-        """Handle writing-related tasks using AIWriterAssistant."""
-        try:
-            if "create" in query or "story" in query:
-                await self.writer_agent.handle_mode_selection()
-            else:
-                await self._speak(
-                    "I can assist with writing tasks. Please specify if you want to create a story or book."
-                )
-        except Exception as e:
-            self.logger.error(f"Error during writing task: {str(e)}")
-
     async def _handle_chatbot(self, query):
         """Handle chatbot-related tasks."""
         try:
@@ -130,14 +124,6 @@ class AIAssistant:
             await self._speak(query_response)
         except Exception as e:
             self.logger.error(f"Error during chatbot task: {str(e)}")
-
-    async def _unknown_task(self, query):
-        """Handle unrecognized commands."""
-        try:
-            await self._speak("I'm sorry, I didn't understand that request.")
-            self.logger.warning(f"Unknown task encountered for query: {query}")
-        except Exception as e:
-            self.logger.error(f"Error handling unknown task: {str(e)}")
 
     async def _summarize_youtube(self, query):
         """Handle YouTube summarization task asynchronously."""
@@ -309,6 +295,20 @@ class AIAssistant:
         except Exception as e:
             self.logger.error(f"Error during text summarization: {str(e)}")
             await self._speak(f"An error occurred during summarization: {str(e)}")
+
+    async def _handle_writer_task(self, query):
+        """Handle writing-related tasks using AIWriterAssistant."""
+        try:
+
+            # Delegate tasks to the WriterAssistant class
+            if "create" in query or "story" in query or "book" in query:
+                await self.writer_agent.handle_mode_selection()  # Call the writer agent to create a story
+            else:
+                await self._speak(
+                    "I can assist with writing tasks. Please specify if you want to create a story or book."
+                )
+        except Exception as e:
+            self.logger.error(f"Error during writing task: {str(e)}")
 
 
 # Example usage

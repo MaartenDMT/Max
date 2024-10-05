@@ -109,9 +109,9 @@ class MaxAssistant:
                 await self._speak("Switching to bad model")
                 self.set_bad_model()
             elif self._is_system_command(query):
-                await self.system_assistant._handle_command(query)
+                await self.system_assistant.handle_command(query)
             elif self._is_ai_command(query):
-                await self.ai_assistant._determine_task(query)
+                await self.ai_assistant.handle_command(query)
             else:
                 self.logger.warning(f"Unknown command: {query}")
         except Exception as e:
@@ -202,7 +202,7 @@ class MaxAssistant:
 
     def _is_ai_command(self, query):
         """Check if the query is an AI-related command."""
-        return any(keyword in query for keyword in ["youtube", "website", "music loop"])
+        return any(command in query for command in self.ai_assistant.commands.keys())
 
     async def _sleep(self, query):
         """Put the assistant to sleep mode."""

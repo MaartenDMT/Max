@@ -32,3 +32,18 @@ def get_system_commands(system_assistant):
         "take screenshot": system_assistant._take_screenshot,
         "calculate": system_assistant._calculate,
     }
+
+
+def get_ai_commands(ai_assistant):
+    """Return a dictionary of AI-related commands."""
+    return {
+        "summarize youtube": ai_assistant._summarize_youtube,
+        "summarize website": ai_assistant._learn_site,
+        "music loop": ai_assistant._make_loop,
+        "research topic": ai_assistant._handle_research,
+        "critique text": lambda query: ai_assistant.set_llm_mode("critique"),
+        "reflect on text": lambda query: ai_assistant.set_llm_mode("reflecting"),
+        "write book": ai_assistant._handle_writer_task,  # Call the writer assistant to handle book writing
+        "write story": ai_assistant._handle_writer_task,
+        "create story": ai_assistant._handle_writer_task,
+    }

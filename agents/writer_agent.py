@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from re import T
 
 from ai_tools.ai_bookwriter.bookwriter import (
     BookWriter,
@@ -8,11 +9,11 @@ from ai_tools.ai_write_assistent.writer import WriterAssistant
 
 
 class AIWriterAgent:
-    def __init__(self, transcribe=None):
+    def __init__(self, speak=None):
         """
         Initialize the AI Writer Assistant class, which includes both a `WriterAssistant` and a `BookWriter`.
         """
-        self.transcribe = transcribe
+        self._speak = speak
         self.writer_assistant = WriterAssistant()
         self.book_writer = BookWriter()
         self.logger = logging.getLogger("AIWriterAssistant")
@@ -31,12 +32,8 @@ class AIWriterAgent:
             modes = ["writer", "book", "exit"]
             await self._speak("Please select the mode: writer, book, or exit.")
 
-            mode = (
-                await asyncio.to_thread(input, "Mode (writer/book/exit): ")
-                .strip()
-                .lower()
-            )
-
+            mode = await asyncio.to_thread(input, "Mode (writer/book/exit): ")
+            mode.strip().lower()
             if mode == "writer":
                 await self._handle_writer_mode()
             elif mode == "book":
@@ -57,7 +54,9 @@ class AIWriterAgent:
         """
         try:
             await self._speak("You are in Writer mode. What would you like to do?")
-            task = await asyncio.to_thread(input, "Task (story/exit): ").strip().lower()
+            task = await asyncio.to_thread(input, "Task (story/exit): ")
+
+            task.strip().lower()
 
             if task == "story":
                 await self.writer_assistant.create_story()
@@ -75,9 +74,9 @@ class AIWriterAgent:
         """
         try:
             await self._speak("You are in Book mode. What would you like to do?")
-            task = (
-                await asyncio.to_thread(input, "Task (create/exit): ").strip().lower()
-            )
+            task = await asyncio.to_thread(input, "Task (create/exit): ")
+
+            task.strip().lower()
 
             if task == "create":
                 await self.book_writer.create_story()
@@ -88,27 +87,6 @@ class AIWriterAgent:
                 await self._speak("Invalid task. Please enter 'create' or 'exit'.")
         except Exception as e:
             await self._speak(f"Error in book mode: {str(e)}")
-
-    async def _speak(self, message):
-        """
-        Placeholder method for text-to-speech (or printing in this case).
-        """
-        print(message)
-
-    async def _determine_task(self, query):
-        """
-        Determine the task the user wants to execute based on their query.
-        """
-        try:
-            if "write" in query or "story" in query:
-                await self._handle_writer_mode()
-            elif "book" in query:
-                await self._handle_book_mode()
-            else:
-                await self._speak("Sorry, I didn't understand the request.")
-        except Exception as e:
-            self.logger.error(f"Error determining task: {str(e)}")
-            await self._speak(f"Error: {str(e)}")
 
 
 # Example usage

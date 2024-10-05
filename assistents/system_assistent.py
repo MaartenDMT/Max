@@ -29,7 +29,7 @@ class SystemAssistant:
         # Log initialization
         self.logger.info("System Assistant initialized.")
 
-    async def _handle_command(self, query):
+    async def handle_command(self, query):
         """Handle system commands based on user query."""
         command_key = query.strip().lower()
         if command_key in self.commands:

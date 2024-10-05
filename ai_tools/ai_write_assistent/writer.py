@@ -4,14 +4,14 @@ import logging
 import re
 
 # Import helper functions
-from ai_write_assistent.helpers import (
+from ai_tools.ai_write_assistent.helpers import (
     clean_up,
     extract_and_save_json,
     get_file_contents,
 )
 
 # Import the necessary agents
-from ai_write_assistent.agents import (
+from ai_tools.ai_write_assistent.agents import (
     agent_selector,
     character_generator,
     generate_creatures_and_monsters,
@@ -99,7 +99,7 @@ class WriterAssistant:
 
             book_description = user_input_description
             text_source = "story.txt"
-            text = get_file_contents(f"data/{text_source}")
+            text = get_file_contents(f"ai_tools/ai_write_assistent/data/{text_source}")
 
             if not text:
                 logging.error(f"Failed to read {text_source}.")

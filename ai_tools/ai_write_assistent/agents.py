@@ -132,7 +132,6 @@ Now, provide your detailed character descriptions in JSON format. Enclose your J
         "name": "[Character Name]",
         "description": "[Detailed character description including physical characteristics, personality traits, background, and potential role in the story]"
     },
-    ...
 ]
 </json>
 
@@ -207,7 +206,7 @@ Present your detailed plot outline as a JSON object with the following structure
             "name": "[Character name]",
             "role": "[Character's role in the story]"
         },
-        ...
+
     ],
     "plotSummary": "[Write a brief overview of the entire plot]",
     "plotStructure": {
@@ -222,14 +221,14 @@ Present your detailed plot outline as a JSON object with the following structure
             "title": "[Subplot title]",
             "description": "[Brief description of the subplot]"
         },
-        ...
+
     ],
     "characterArcs": [
         {
             "character": "[Character Name]",
             "arc": "[Description of the character's development]"
         },
-        ...
+
     ],
     "themes": [
         "[Theme 1]",
@@ -294,66 +293,58 @@ To generate the world-building elements:
 Present your world-building elements as a JSON object with the following structure, enclosed with the <json> tags:
 
 <json>
-{
-    "geography": {
+{{
+    "geography": {{
         "continents": [
-            {
+            {{
                 "name": "[Continent Name]",
                 "description": "[Description of the continent]"
-            },
-            ...
+            }}
         ],
         "countries": [
-            {
+            {{
                 "name": "[Country Name]",
                 "description": "[Description of the country]",
                 "continent": "[Continent Name]"
-            },
-            ...
+            }}
         ],
         "cities": [
-            {
+            {{
                 "name": "[City Name]",
                 "description": "[Description of the city]",
                 "country": "[Country Name]"
-            },
-            ...
+            }}
         ],
         "landmarks": [
-            {
+            {{
                 "name": "[Landmark Name]",
                 "description": "[Description of the landmark]",
                 "location": "[Geographical location]"
-            },
-            ...
+            }}
         ]
-    },
+    }},
     "history": [
-        {
+        {{
             "era": "[Historical Era]",
             "events": [
-                {
+                {{
                     "name": "[Event Name]",
                     "description": "[Description of the event]",
                     "impact": "[Impact on the world and plot]"
-                },
-                ...
+                }}
             ]
-        },
-        ...
+        }}
     ],
     "cultures": [
-        {
+        {{
             "name": "[Culture Name]",
             "description": "[Description of the culture]",
             "societyStructure": "[Details about social hierarchy, governance, etc.]",
             "traditions": "[Cultural traditions and customs]"
-        },
-        ...
+        }}
     ]
-}
+}}
 </json>
-
 Ensure that your world-building elements are detailed and contribute to the depth and richness of the story.""",
                     }
                 ],
@@ -472,7 +463,6 @@ Present your weapons and artifacts as a JSON object with the following structure
             "history": "[Background and significance in the story]",
             "owner": "[Character associated with the item]"
         },
-        ...
     ]
 }
 </json>
@@ -533,7 +523,6 @@ Present your creatures and monsters as a JSON object with the following structur
             "abilities": "[Special abilities or traits]",
             "roleInStory": "[How the creature influences the plot or characters]"
         },
-        ...
     ]
 }
 </json>
@@ -595,7 +584,6 @@ Present your fauna and flora as a JSON object with the following structure, encl
             "uses": "[Practical uses or significance]",
             "roleInStory": "[How the species influences the plot or characters]"
         },
-        ...
     ]
 }
 </json>
@@ -657,7 +645,6 @@ Present your analysis and enhancements as a JSON object with the following struc
             "conflicts": "[Conflicts the character faces]",
             "development": "[How the character evolves throughout the plot]"
         },
-        ...
     ]
 }
 </json>
@@ -719,7 +706,6 @@ Present your suggestions and thoughts as a JSON object with the following struct
             "area": "[Plot/Character/Theme]",
             "suggestion": "[Detailed suggestion or thought]"
         },
-        ...
     ]
 }
 </json>
