@@ -23,7 +23,7 @@ from ai_tools.ai_write_assistent.writer import WriterAssistant
 
 
 class AIWriterAgent:
-    def __init__(self, transcribe):
+    def __init__(self, transcribe=None):
         """
         Initialize the AI Writer Assistant class, which includes both a `WriterAssistant` and a `BookWriter`.
         """
@@ -128,7 +128,7 @@ class AIWriterAgent:
 
 # Example usage
 if __name__ == "__main__":
-    assistant = AIWriterAgent(transcribe=None)
+    assistant = AIWriterAgent()
 
     # Running a loop that allows mode selection and task execution
     loop_running = True

@@ -6,6 +6,7 @@ from agents.research_agent import AIResearchAgent
 from agents.video_agent import VideoProcessingAgent
 from agents.webpage_agent import WebsiteProcessingAgent
 from ai_tools.speech.app_speech import SpeechApp
+from agents.writer_agent import AIWriterAgent
 from utils.loggers import LoggerSetup
 
 
@@ -52,10 +53,8 @@ class AIAssistant:
         elif agent_type == "chatbot" and not hasattr(self, "chatbot_agent"):
             self.chatbot_agent = ChatbotAgent()  # Load ChatbotAgent
             self.logger.info("ChatbotAgent loaded.")
-        elif agent_type == "writer" and not hasattr(self, "writer_agent"):
-            self.writer_agent = AIWriterAssistant(
-                self.transcribe
-            )  # Load AIWriterAssistant
+        elif agent_type == "writer assistent" and not hasattr(self, "writer_agent"):
+            self.writer_agent = AIWriterAgent()  # Load AIWriterAssistant
             self.logger.info("AIWriterAssistant loaded.")
 
     async def _determine_task(self, query):
@@ -82,8 +81,8 @@ class AIAssistant:
                 self.logger.info("Chatbot or AI task detected.")
                 await self._handle_chatbot(query)  # Use ChatbotAgent for these tasks
             elif "write" in query or "story" in query or "book" in query:
-                self.logger.info("Writing task detected.")
-                self._load_agent("writer")  # Load the AIWriterAssistant
+                self.logger.info("Writing assistent task detected.")
+                self._load_agent("writer assistent")  # Load the AIWriterAssistant
                 await self._handle_writer_task(query)  # Use AIWriterAssistant
             else:
                 self.logger.warning(f"Unknown task for query: {query}")
