@@ -8,6 +8,8 @@ from langchain_ollama import ChatOllama
 
 from utils.loggers import LoggerSetup
 
+MAX_CHUNK_SIZE = 2048
+
 
 class YouTubeSummarizer:
     def __init__(
@@ -24,7 +26,7 @@ class YouTubeSummarizer:
         self.audio_filename = os.path.join(self.download_path, "youtube_audio.wav")
 
         # LangChain component for summarization
-        self.llm = ChatOllama(model="llama3.1", temperature=0.7, num_predict=-1)
+        self.llm = ChatOllama(model="llama3.1", temperature=0.2, num_predict=-1)
 
         # Setup logger
         log_setup = LoggerSetup()
@@ -82,7 +84,7 @@ class YouTubeSummarizer:
         except Exception as e:
             self.logger.error(f"Error during audio transcription: {e}")
 
-    def split_text(self, text, max_chunk_size=4000):
+    def split_text(self, text, max_chunk_size=MAX_CHUNK_SIZE):
         """Split text into chunks suitable for LLM processing."""
         import re
 
@@ -92,16 +94,34 @@ class YouTubeSummarizer:
         current_chunk = ""
 
         for sentence in sentences:
-            # Estimate the token length (approximate 1 token ~ 4 characters)
-            estimated_tokens = len(current_chunk) // 4 + len(sentence) // 4
+            # Estimate the token length
+            estimated_tokens = (len(current_chunk) + len(sentence)) // 4
             if estimated_tokens <= max_chunk_size:
                 current_chunk += " " + sentence
             else:
-                chunks.append(current_chunk.strip())
-                current_chunk = sentence
+                if current_chunk:
+                    chunks.append(current_chunk.strip())
+                    self.logger.info(
+                        f"Chunk {len(chunks)} size: {len(current_chunk)} characters."
+                    )
+                # Handle very long sentences
+                if len(sentence) // 4 > max_chunk_size:
+                    # Split the long sentence into smaller parts
+                    for i in range(0, len(sentence), max_chunk_size * 4):
+                        part = sentence[i : i + max_chunk_size * 4]
+                        chunks.append(part.strip())
+                        self.logger.info(
+                            f"Chunk {len(chunks)} size: {len(part)} characters (split from long sentence)."
+                        )
+                    current_chunk = ""
+                else:
+                    current_chunk = sentence
 
         if current_chunk:
             chunks.append(current_chunk.strip())
+            self.logger.info(
+                f"Chunk {len(chunks)} size: {len(current_chunk)} characters."
+            )
 
         return chunks
 
@@ -112,19 +132,32 @@ class YouTubeSummarizer:
                 prompt_text = "Provide a brief summary based on the following content:\n\n{context}"
             else:
                 prompt_text = """
-                You are an expert summarizer. Read the following transcript of a conversation and provide a detailed summary that addresses the following key points:
+                    You are an expert summarizer. Read the following context and provide a detailed summary **following this exact format**:
 
-                1. **Core Topics**: What are the main subjects or topics being discussed?
-                2. **Key Arguments**: Highlight the most important arguments made and the supporting evidence or details.
-                3. **Insights and Takeaways**: What insights, lessons, or conclusions are emphasized?
-                4. **Examples and Data**: Provide relevant examples or data points that illustrate or support the content.
-                5. **Organized Summary**: Ensure the summary is well-organized and clearly written in sections.
+                    **Summary of Part X**
 
-                Please focus on summarizing the content without adding any additional information or taking any actions.
+                    Begin with a brief introduction summarizing the overall theme of the discussion.
 
-                Transcript:
-                {context}
-                """
+                    Then, for each main topic discussed, present it as a header and explain what was said about it in bullet points. Follow this structure:
+
+                    **[Topic Name]**
+
+                    - Key point 1 about the topic.
+                    - Key point 2 about the topic.
+                    - Additional details, examples, or speaker recommendations related to the topic.
+
+                    Continue this format for each topic.
+
+                    Conclude with any overall insights or themes emphasized by the speaker.
+
+                    **Please ensure that:**
+                    - Each topic is clearly highlighted as a header.
+                    - Under each topic, you provide detailed bullet points explaining what was said.
+                    - The summary strictly adheres to this format without adding or omitting any sections.
+
+                    context:
+                    {context}
+"""
 
             # Define the template using PromptTemplate
             prompt_template = PromptTemplate(
@@ -139,19 +172,28 @@ class YouTubeSummarizer:
         except Exception as e:
             self.logger.error(f"Error creating chain: {e}")
 
-    def process_chat(self, chain, text_chunk):
+    def process_chat(self, chain, text_chunk, chunk_index):
         """Process the summarization for a text chunk and return a response."""
         try:
+            self.logger.info(f"Processing chunk {chunk_index}")
             response = chain.invoke({"context": text_chunk})
             # Ensure that response is extracted correctly
             if isinstance(response, str):
-                return response.strip()
+                summary = response.strip()
             elif isinstance(response, AIMessage):
-                return response.content.strip()
+                summary = response.content.strip()
             else:
-                return str(response).strip()
+                summary = str(response).strip()
+
+            if not summary:
+                self.logger.warning("Empty summary generated.")
+            else:
+                self.logger.info(
+                    f"Summary for chunk {chunk_index} generated successfully."
+                )
+            return summary
         except Exception as e:
-            self.logger.error(f"Error during summarization: {e}")
+            self.logger.error(f"Error during summarization of chunk {chunk_index}: {e}")
             return None
 
     def save_text(self, text, filename):
@@ -209,7 +251,7 @@ class YouTubeSummarizer:
                 )
 
             # Step 2: Split the transcription into chunks
-            max_chunk_size = 4000  # Adjust based on your LLM's context window
+            max_chunk_size = MAX_CHUNK_SIZE  # Adjust based on your LLM's context window
             chunks = self.split_text(transcribed_text, max_chunk_size)
 
             self.logger.info(f"Transcription split into {len(chunks)} chunks.")
@@ -224,11 +266,15 @@ class YouTubeSummarizer:
             summaries = []
             for idx, chunk in enumerate(chunks):
                 self.logger.info(f"Summarizing chunk {idx + 1}/{len(chunks)}")
-                summary = self.process_chat(chain, chunk)
+                summary = self.process_chat(chain, chunk, idx + 1)
                 if summary:
                     summaries.append(f"### Summary of Part {idx + 1}\n{summary}\n")
                 else:
                     self.logger.error(f"Summarization failed for chunk {idx + 1}.")
+
+            self.logger.info(
+                f"Total summaries generated: {len(summaries)} out of {len(chunks)}"
+            )
 
             if not summaries:
                 self.logger.error("No summaries were generated.")
@@ -236,13 +282,6 @@ class YouTubeSummarizer:
 
             # Step 5: Combine summaries
             combined_summary = "\n".join(summaries)
-
-            # Optional: Summarize the combined summaries to create an overall summary
-            overall_summary = self.process_chat(chain, combined_summary)
-            if overall_summary:
-                combined_summary = (
-                    f"# Overall Summary\n{overall_summary}\n\n{combined_summary}"
-                )
 
             # Step 6: Save the combined summary
             summary_filename = f"{cleaned_title}_summary.md"

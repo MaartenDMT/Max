@@ -52,6 +52,11 @@ class AIAssistant:
         elif agent_type == "chatbot" and not hasattr(self, "chatbot_agent"):
             self.chatbot_agent = ChatbotAgent()  # Load ChatbotAgent
             self.logger.info("ChatbotAgent loaded.")
+        elif agent_type == "writer" and not hasattr(self, "writer_agent"):
+            self.writer_agent = AIWriterAssistant(
+                self.transcribe
+            )  # Load AIWriterAssistant
+            self.logger.info("AIWriterAssistant loaded.")
 
     async def _determine_task(self, query):
         """Determine which task to execute based on the user's input."""
@@ -76,6 +81,10 @@ class AIAssistant:
                 self._load_agent("chatbot")
                 self.logger.info("Chatbot or AI task detected.")
                 await self._handle_chatbot(query)  # Use ChatbotAgent for these tasks
+            elif "write" in query or "story" in query or "book" in query:
+                self.logger.info("Writing task detected.")
+                self._load_agent("writer")  # Load the AIWriterAssistant
+                await self._handle_writer_task(query)  # Use AIWriterAssistant
             else:
                 self.logger.warning(f"Unknown task for query: {query}")
                 await self._unknown_task(query)
@@ -97,6 +106,18 @@ class AIAssistant:
             self.llm_mode = None
             self.logger.info("Invalid mode selected, no LLM mode enabled.")
             return "Invalid mode selected."
+
+    async def _handle_writer_task(self, query):
+        """Handle writing-related tasks using AIWriterAssistant."""
+        try:
+            if "create" in query or "story" in query:
+                await self.writer_agent.handle_mode_selection()
+            else:
+                await self._speak(
+                    "I can assist with writing tasks. Please specify if you want to create a story or book."
+                )
+        except Exception as e:
+            self.logger.error(f"Error during writing task: {str(e)}")
 
     async def _handle_chatbot(self, query):
         """Handle chatbot-related tasks."""

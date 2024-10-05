@@ -11,7 +11,7 @@ import pywhatkit
 import wikipedia
 from dotenv import load_dotenv
 
-from ai_tools.ai_bookwriter.lang_main import book_assistant
+from ai_tools.ai_bookwriter.bookwriter import book_assistant
 from ai_tools.ai_doc_webpage_summarizer import WebPageSummarizer
 from ai_tools.ai_youtube_summary import YouTubeSummarizer
 from ai_tools.speech.app_speech import SpeechApp

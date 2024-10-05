@@ -1,9 +1,8 @@
 import asyncio
 
-from langchain_community.vectorstores import Chroma
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_ollama import ChatOllama, OllamaEmbeddings
+from langchain_ollama import ChatOllama
 
 # System prompt for the critique AI
 critique_system_prompt = """
@@ -32,10 +31,10 @@ Make sure all <tags> are on separate lines with no other text. Do not include ot
 
 
 class CritiqueLLM:
-    """AI agent designed to provide detailed critiques and feedback using Chroma and Ollama Embeddings."""
+    """AI agent designed to provide detailed critiques and feedback."""
 
     def __init__(self):
-        """Initialize CritiqueLLM with ChatOllama and Chroma using Ollama Embeddings."""
+        """Initialize CritiqueLLM with ChatOllama."""
         self.model = ChatOllama(
             model="llama3.1",
             temperature=0.4,
@@ -43,10 +42,6 @@ class CritiqueLLM:
             top_p=0.85,
             frequency_penalty=0.3,
             presence_penalty=0.5,
-        )
-        self.embeddings = OllamaEmbeddings(model="nomic-embed-text")
-        self.vector_store = Chroma.from_texts(
-            ["Past critique examples or embeddings"], embedding=self.embeddings
         )
 
         self.prompt_template = ChatPromptTemplate.from_messages(
@@ -58,13 +53,9 @@ class CritiqueLLM:
         )
 
     async def _handle_query(self, user_input, chat_history):
-        """Handle the user's critique request, providing feedback and retrieving relevant past critiques."""
-        retrieved_docs = self.vector_store.similarity_search(user_input, k=3)
-        relevant_context = "\n\n".join([doc.page_content for doc in retrieved_docs])
-
+        """Handle the user's critique request, providing feedback."""
         input_message = [
             HumanMessage(content=user_input),
-            AIMessage(content=relevant_context),
         ]
 
         # Get the AI response asynchronously
@@ -95,7 +86,7 @@ class CritiqueLLM:
             print(f"CritiqueLLM: {result}")
 
 
-# Example usage: Running the CritiqueLLM with Ollama Embeddings
+# Example usage: Running the CritiqueLLM
 if __name__ == "__main__":
     agent = CritiqueLLM()
     asyncio.run(agent.run())

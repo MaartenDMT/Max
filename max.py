@@ -71,6 +71,9 @@ class MaxAssistant:
             while True:
                 query = await self._get_command()
 
+                if "rust" in query:
+                    await self._sleep(query)
+
                 if self.is_asleep:
                     if "wake up" in query:
                         await self._wake_up()
@@ -109,10 +112,6 @@ class MaxAssistant:
                 await self.system_assistant._handle_command(query)
             elif self._is_ai_command(query):
                 await self.ai_assistant._determine_task(query)
-            elif "rust" in query:
-                await self._sleep(query)
-            elif "wake up" in query:
-                await self._wake_up(query)
             else:
                 self.logger.warning(f"Unknown command: {query}")
         except Exception as e:
