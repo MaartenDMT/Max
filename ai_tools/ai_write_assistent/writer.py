@@ -4,10 +4,14 @@ import logging
 import re
 
 # Import helper functions
-from helpers import clean_up, extract_and_save_json, get_file_contents
+from ai_write_assistent.helpers import (
+    clean_up,
+    extract_and_save_json,
+    get_file_contents,
+)
 
 # Import the necessary agents
-from agents import (
+from ai_write_assistent.agents import (
     agent_selector,
     character_generator,
     generate_creatures_and_monsters,
