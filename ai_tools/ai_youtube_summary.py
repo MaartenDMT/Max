@@ -51,7 +51,7 @@ class YouTubeSummarizer:
 
     def clean_title(self, title):
         """Remove special characters from the title and format it for a file name."""
-        return re.sub(r"[^\w\s-]", "", title).strip().replace(" ", "_")
+        return re.sub(r"[^\w\s-]", "", title).strip()
 
     def download_audio(self, video_url):
         """Download audio from a YouTube video."""
@@ -202,7 +202,26 @@ class YouTubeSummarizer:
         with open(output_file, "w", encoding="utf-8") as file:
             file.write(text)
 
-    def save_md(self, text, filename, title):
+    def meta_data(self, clean_title, url, channel):
+        "save the meta data"
+        meta = f"""---
+status: inputs/-
+medium: video/youtube
+channel: {channel}
+up:
+- "[[Youtube list]]"
+- "[[{clean_title} Application]]"
+created-date: 2024-10-04 00:15
+updated-date: 2024-10-06 18:10
+tags:
+- youtube
+link: {url}
+---
+"""
+
+        return meta
+
+    def save_md(self, text, filename, title, meta):
         """Save text to a Markdown file."""
         if not os.path.exists(self.output_path):
             os.makedirs(self.output_path)
@@ -210,6 +229,7 @@ class YouTubeSummarizer:
         output_file = os.path.join(self.output_path, filename)
 
         with open(output_file, "w", encoding="utf-8") as file:
+            file.write(f"{meta}\n")
             file.write(f"# {title}\n\n")
             file.write(text)
 
@@ -222,6 +242,7 @@ class YouTubeSummarizer:
 
             video_info = self.get_video_info(video_url)
             cleaned_title = self.clean_title(video_info["title"])
+            channel = video_info.get("channel")
             transcription_filename = f"{cleaned_title}_full.txt"
             transcription_filepath = os.path.join(
                 self.output_path, transcription_filename
@@ -284,8 +305,9 @@ class YouTubeSummarizer:
             combined_summary = "\n".join(summaries)
 
             # Step 6: Save the combined summary
-            summary_filename = f"{cleaned_title}_summary.md"
-            self.save_md(combined_summary, summary_filename, video_info["title"])
+            summary_filename = f"{cleaned_title}.md"
+            meta = self.meta_data(cleaned_title, video_url, channel)
+            self.save_md(combined_summary, summary_filename, video_info["title"], meta)
             self.logger.info(f"Summary saved to {summary_filename}")
 
             # Step 7: Return both full text and summary

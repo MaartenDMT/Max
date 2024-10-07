@@ -1,0 +1,561 @@
+{
+  "People": [
+    {
+      "name": "Bob Monroe",
+      "certainty": "high"
+    },
+    {
+      "name": "Bob (trainer)",
+      "certainty": "low"
+    }
+  ],
+  "Concepts": [
+    {
+      "concept": "hologram",
+      "definition": "the concept that the universe is a holographic projection"
+    },
+    {
+      "concept": "gateway technique",
+      "definition": "a method for personal growth and development through heightened consciousness"
+    },
+    {
+      "concept": "out-of-body experience (OBE)",
+      "definition": "a state where an individual's consciousness separates from their physical body"
+    }
+  ],
+  "Techniques or Procedures": [
+    {
+      "technique": "HemiSync tape",
+      "description": "a method for inducing a state of heightened attentiveness and relaxation through sound frequencies"
+    },
+    {
+      "technique": "energy balloon",
+      "description": "a visualization technique for enhancing bodily energy flow and protecting against lower-energy entities"
+    },
+    {
+      "procedure": "problem-solving",
+      "description": "an advanced technique for identifying problems, filling expanded awareness with perceptions of those problems, and projecting them out into the universe to enlist the assistance of one's higher self"
+    }
+  ],
+  "Scientific Facts": [
+    {
+      "fact": "brain hemisphere synchronization is necessary for inducing an OBE",
+      "certainty": "high"
+    },
+    {
+      "fact": "REM sleep is a state where most people experience OBEs",
+      "certainty": "medium"
+    }
+  ],
+  "Numerical Data": [
+    {
+      "value": "7 hertz",
+      "unit": "frequency (Hz)",
+      "context": "associated with brain hemisphere synchronization and OBE induction"
+    },
+    {
+      "value": "10 correct numbers",
+      "unit": "count",
+      "context": "associated with an experiment where individuals attempted to read computer-generated numbers in the OBE state"
+    }
+  ],
+  "Definitions": [
+    {
+      "term": "hologram",
+      "definition": "a three-dimensional image created by a holographic process"
+    },
+    {
+      "term": "REM sleep",
+      "definition": "rapid eye movement, a stage of sleep characterized by rapid eye movements and increased brain activity"
+    }
+  ],
+  "Verifiable Claims or Statements": [
+    {
+      "claim": "the Gateway Program can develop human consciousness and interact with dimensions beyond physical reality",
+      "certainty": "low"
+    },
+    {
+      "statement": "most people experience OBEs during REM sleep",
+      "certainty": "medium"
+    }
+  ],
+  "Definitions of Terms": {
+    "Gateway Technique": [
+      {
+        "Definition": "A method for personal growth and self-discovery"
+      },
+      {
+        "Properties": [
+          "meditation",
+          "feeling magic around oneself"
+        ]
+      }
+    ],
+    "Magic": {
+      "Definition": "The use of general magic",
+      "Properties": [
+        "natural form",
+        "stable form"
+      ]
+    },
+    "Types of Magic Users": [
+      {
+        "Sorcerers": "naturally born with magic abilities"
+      },
+      {
+        "Mages": "learned magic through study and practice"
+      },
+      {
+        "Warlocks": "use dark or unstable magic"
+      }
+    ]
+  },
+  "Historical Events": {
+    "Magic-Driven Empires": [
+      {
+        "Statement": "Powerful magical dynasties have risen and fallen"
+      },
+      {
+        "Properties": [
+          "left behind legacies",
+          "continue to influence global politics"
+        ]
+      }
+    ],
+    "Magical Artefacts": [
+      {
+        "Statement": "Ancient relics imbued with powerful magic have been used as tools of war, diplomacy, or symbols of authority"
+      }
+    ]
+  },
+  "Processes or Procedures": {
+    "Using Magic": [
+      {
+        "Meditation": "a method for connecting with and feeling magic"
+      },
+      {
+        "Artifact Use": "using magical items to enhance abilities"
+      }
+    ],
+    "Learning Magic": [
+      {
+        "Practice": "regular practice allows magic users to refine their skills"
+      },
+      {
+        "Study and Research": "delving into ancient texts, seeking mentors, or experimenting with new techniques can help magic users expand their knowledge and capabilities"
+      },
+      {
+        "Mentorship": "working under the guidance of experienced magic users"
+      }
+    ],
+    "Meditation": {
+      "description": "A practice of quiet reflection, often used to achieve a state of calm and inner peace"
+    },
+    "Prayer": {
+      "description": "The act of communicating with a higher power; seeking guidance, comfort, or assistance"
+    }
+  },
+  "Mage Classes": [
+    {
+      "Name": "Upper Mage",
+      "Description": "A high-level mage"
+    },
+    {
+      "Name": "High Mage",
+      "Description": "The highest level of magic mastery"
+    },
+    {
+      "Name": "Silver Mage",
+      "Description": "Above gold mage in skill and ability"
+    },
+    {
+      "Name": "Platinum mage",
+      "Description": "Even higher than silver mage"
+    },
+    {
+      "Name": "Diamond mage",
+      "Description": "Highest level above platinum mage"
+    },
+    {
+      "Name": "Divine Mage",
+      "Description": "At the highest point of magic mastery"
+    }
+  ],
+  "Elemental Magic System": {
+    "Elements": [
+      "Fire",
+      "Wind",
+      "Water",
+      "Earth",
+      "Thunder"
+    ],
+    "Concepts": [
+      {
+        "Name": "Origo",
+        "Description": "The most pure form of magic"
+      },
+      {
+        "Name": "Magic Building",
+        "Description": "A framework for spellcasting and magical energy manipulation"
+      }
+    ]
+  },
+  "Weather and Elemental Manipulation": {
+    "Wind Magic": [
+      {
+        "Name": "Wind singer",
+        "Description": "Can listen and translate the wind"
+      },
+      {
+        "Name": "Wind reaper",
+        "Description": "Can control the wind"
+      }
+    ],
+    "Water Magic": [
+      {
+        "Name": "Wet cloak",
+        "Description": "Able to become one with water"
+      },
+      {
+        "Name": "Water weaver",
+        "Description": "Able to control water"
+      }
+    ]
+  },
+  "Fauna/Flora Manipulation": {
+    "Animal Control": [
+      {
+        "Name": "Whisperer",
+        "Description": "Can speak with animals, strong ones can control animals"
+      },
+      {
+        "Name": "Leavoy",
+        "Description": "Can make flora do his bidding"
+      }
+    ],
+    "Plant Creation": [
+      {
+        "Name": "Witch",
+        "Description": "Makes potions and some can use enchanter on themselves"
+      }
+    ]
+  },
+  "Shadow and Darkness Manipulation": {
+    "Shadow Magic": [
+      {
+        "Name": "Shadow walker",
+        "Description": "Able to use the shadow and become one with it"
+      },
+      {
+        "Name": "Shadow master",
+        "Description": "Able to use the shadow and manipulate shadow"
+      }
+    ],
+    "Other": [
+      {
+        "Name": "Glitch",
+        "Description": "Mastering shadow walking as mastering manipulating shadow"
+      }
+    ]
+  },
+  "topics": [
+    {
+      "name": "Spellcasting",
+      "subcategories": [
+        {
+          "name": "Mechanics",
+          "facts": [
+            {
+              "key": "Spellcasting System",
+              "value": "defines the rules and mechanics behind spell casting"
+            },
+            {
+              "key": "Casting Conditions",
+              "value": " conditions for casting, casting times, etc."
+            }
+          ]
+        },
+        {
+          "name": "Components",
+          "facts": [
+            {
+              "key": "Spellcasting Ability",
+              "value": "ability that allows a character to cast a spell"
+            },
+            {
+              "key": "Spellcasting Equipment",
+              "value": "items used in spells, such as weapons or potions"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Magic System",
+      "subcategories": [
+        {
+          "name": "Components",
+          "facts": [
+            {
+              "key": "Spellbooks",
+              "value": "physical object or digital file storing spellcasting ability"
+            },
+            {
+              "key": "Spells",
+              "value": "can include spells from books, legendary sources, etc."
+            }
+          ]
+        },
+        {
+          "name": "Weaving",
+          "facts": [
+            {
+              "key": "Definition",
+              "value": "manipulate the fabric of reality itself"
+            },
+            {
+              "key": "Purpose",
+              "value": "maintaining balance and order in the universe"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Fantasy World",
+      "subcategories": [
+        {
+          "name": "Features",
+          "facts": [
+            {
+              "key": "Worlds",
+              "value": "can be manipulated by Weavers to create new possibilities and outcomes"
+            },
+            {
+              "key": "Scales of Operation",
+              "value": "Weavers operate on a much larger scale than other groups"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "definitions": [
+    {
+      "term": "Spellcasting System",
+      "definition": "defines the rules and mechanics behind spell casting"
+    },
+    {
+      "term": "Weaving",
+      "definition": "manipulate the fabric of reality itself to maintain balance and order in the universe"
+    }
+  ],
+  "historical events": [],
+  "scientific facts": [],
+  "places_and_worlds": [
+    {
+      "name": "Zoul",
+      "description": "higher plain"
+    },
+    {
+      "name": "Diamant",
+      "description": "lower plain"
+    },
+    {
+      "name": "Fiagar",
+      "description": "lower plain"
+    },
+    {
+      "name": "Amelta",
+      "description": "lower plain"
+    },
+    {
+      "name": "Utopia",
+      "description": "immortal plain (only spoken of)"
+    }
+  ],
+  "factions_and_teams": [
+    {
+      "name": "Immortals path",
+      "description": ""
+    },
+    {
+      "name": "Chaos",
+      "description": ""
+    },
+    {
+      "name": "Knowledge",
+      "description": ""
+    },
+    {
+      "name": "Faith",
+      "description": ""
+    },
+    {
+      "name": "Life",
+      "description": ""
+    },
+    {
+      "name": "Death",
+      "description": ""
+    },
+    {
+      "name": "Power",
+      "description": ""
+    },
+    {
+      "name": "Greed",
+      "description": ""
+    },
+    {
+      "name": "War",
+      "description": ""
+    },
+    {
+      "name": "Peace",
+      "description": ""
+    },
+    {
+      "name": "Warrior",
+      "description": ""
+    },
+    {
+      "name": "Sects",
+      "description": ""
+    },
+    {
+      "name": "Great Clan",
+      "description": ""
+    },
+    {
+      "name": "Shadow Clan",
+      "description": ""
+    },
+    {
+      "name": "Momentum clan",
+      "description": ""
+    },
+    {
+      "name": "Light Faction",
+      "description": ""
+    },
+    {
+      "name": "Darkness Faction",
+      "description": ""
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "Lost Artefacts",
+      "description": ""
+    }
+  ],
+  "sequences_and_paths": [
+    {
+      "name": "Balance",
+      "description": ""
+    },
+    {
+      "name": "Discipline",
+      "description": ""
+    },
+    {
+      "name": "Precision",
+      "description": ""
+    },
+    {
+      "name": "Harmony",
+      "description": ""
+    },
+    {
+      "name": "Divine",
+      "description": ""
+    },
+    {
+      "name": "Ying Yang",
+      "description": ""
+    },
+    {
+      "name": "Chaos",
+      "description": ""
+    },
+    {
+      "name": "Sons",
+      "description": ""
+    },
+    {
+      "name": "Revolution",
+      "description": ""
+    },
+    {
+      "name": "Anarchy's Edge",
+      "description": ""
+    },
+    {
+      "name": "Mayhem",
+      "description": ""
+    },
+    {
+      "name": "Freedom's Call",
+      "description": ""
+    },
+    {
+      "name": "Writers",
+      "description": ""
+    },
+    {
+      "name": "Discovery",
+      "description": ""
+    },
+    {
+      "name": "Preservation",
+      "description": ""
+    },
+    {
+      "name": "Innovation",
+      "description": ""
+    }
+  ],
+  "Verifiable Claims": {
+    "Importance of Trust": {
+      "statement": "Trust is essential in relationships",
+      "certainty": "high"
+    },
+    "Consequences of Chaos": {
+      "statement": "Chaos can lead to destruction and disorder",
+      "certainty": "medium"
+    }
+  },
+  "Sequences": {
+    "Order Sequence": [
+      {
+        "name": "Hierarchy",
+        "description": "A system where authority is held by a single individual or group"
+      },
+      {
+        "name": "Bureaucracy",
+        "description": "A complex system of administration characterized by a large number of officials and rules"
+      }
+    ],
+    "Chaos Sequence": [
+      {
+        "name": "Anarchy",
+        "description": "A state of society without government or law"
+      },
+      {
+        "name": "Revolution",
+        "description": "A violent overthrow of an existing government or social order"
+      }
+    ]
+  },
+  "factual_information": {
+    "dates_and_times": [],
+    "names_of_people_places_or_organizations": [],
+    "numerical_data": [],
+    "historical_events": [],
+    "scientific_facts": [],
+    "definitions_of_terms": [],
+    "descriptions_of_processes_or_procedures": [],
+    "verifiable_claims_or_statements": []
+  }
+}

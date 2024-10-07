@@ -1,4 +1,5 @@
 import json
+import re
 
 import ollama
 from dotenv import load_dotenv
@@ -65,7 +66,9 @@ Before providing your final answer, use <scratchpad> tags to think through the p
 4. Note any challenges or ambiguities you encounter.
 </scratchpad>
 
-Now, provide your final JSON output containing all the factual information from the text. Enclose your JSON within <json> tags. Ensure your JSON is properly formatted and valid.
+
+Now, provide your final JSON output containing all the factual information from the text. Do not use // to write comments.
+Enclose your JSON within <json> tags. Ensure your JSON is properly formatted and valid, be sure to double check it. Do not include the <scratchpad> in your final answer.
 
 <json>
 [your JSON output here]
@@ -128,10 +131,10 @@ Now, provide your detailed character descriptions in JSON format. Enclose your J
 
 <json>
 [
-    {
+    {{
         "name": "[Character Name]",
         "description": "[Detailed character description including physical characteristics, personality traits, background, and potential role in the story]"
-    },
+    }},
 ]
 </json>
 
@@ -197,15 +200,15 @@ To create a detailed plot:
 Present your detailed plot outline as a JSON object with the following structure. Ensure it is enclosed within the <json> tags:
 
 <json>
-{
+{{
     "title": "[Provide a working title for the book]",
     "genre": "[Specify the genre based on the plot you've developed]",
     "setting": "[Describe the primary setting(s) of the story]",
     "mainCharacters": [
-        {
+        {{
             "name": "[Character name]",
             "role": "[Character's role in the story]"
-        },
+        }},
 
     ],
     "plotSummary": "[Write a brief overview of the entire plot]",
@@ -217,17 +220,17 @@ Present your detailed plot outline as a JSON object with the following structure
         "resolution": "[Describe the resolution]"
     },
     "subplots": [
-        {
+        {{
             "title": "[Subplot title]",
             "description": "[Brief description of the subplot]"
-        },
+        }},
 
     ],
     "characterArcs": [
-        {
+        {{
             "character": "[Character Name]",
             "arc": "[Description of the character's development]"
-        },
+        }},
 
     ],
     "themes": [
@@ -242,7 +245,7 @@ Present your detailed plot outline as a JSON object with the following structure
         "[Key plot point 4]",
         "[Key plot point 5]"
     ]
-}
+}}
 </json>
 
 Ensure that your plot outline is coherent, engaging, and makes full use of the provided facts and character descriptions. The plot should be detailed enough to serve as a comprehensive guide for writing a full-length novel.""",
@@ -394,7 +397,7 @@ To generate the magic system:
 Present your magic system as a JSON object with the following structure, enclosed with the <json> tags:
 
 <json>
-{
+{{
     "magicSystem": {
         "principles": "[Description of the fundamental principles of magic]",
         "access": "[Explanation of how magic is accessed and learned]",
@@ -402,7 +405,7 @@ Present your magic system as a JSON object with the following structure, enclose
         "influence": "[Description of how magic influences society and the environment]",
         "integration": "[Explanation of how the magic system integrates with the plot and characters]"
     }
-}
+}}
 </json>
 
 Ensure that your magic system is unique, coherent, and contributes to the depth and richness of the story.""",
@@ -453,18 +456,18 @@ To generate weapons and artifacts:
 Present your weapons and artifacts as a JSON object with the following structure, enclosed with the <json> tags:
 
 <json>
-{
+{{
     "weaponsAndArtifacts": [
-        {
+        {{
             "name": "[Item Name]",
             "type": "[Weapon or Artifact]",
             "description": "[Detailed description of the item]",
             "abilities": "[Special abilities or properties]",
             "history": "[Background and significance in the story]",
             "owner": "[Character associated with the item]"
-        },
+        }},
     ]
-}
+}}
 </json>
 
 Ensure that your weapons and artifacts are unique and contribute meaningfully to the plot and character development.""",
@@ -514,20 +517,18 @@ To generate creatures and monsters:
 Present your creatures and monsters as a JSON object with the following structure, enclosed with the <json> tags:
 
 <json>
-{
-    "creaturesAndMonsters": [
-        {
-            "name": "[Creature Name]",
-            "description": "[Detailed description of the creature]",
-            "habitat": "[Natural habitat]",
-            "abilities": "[Special abilities or traits]",
-            "roleInStory": "[How the creature influences the plot or characters]"
-        },
-    ]
-}
+[
+    {{
+        "name": "[Creature Name]",
+        "description": "[Detailed description of the creature]",
+        "habitat": "[Natural habitat]",
+        "abilities": "[Special abilities or traits]",
+        "roleInStory": "[How the creature influences the plot or characters]"
+    }}
+]
 </json>
 
-Ensure that your creatures and monsters are unique and enhance the immersive quality of the story.""",
+Ensure that you create at least 5 unique creatures, but feel free to generate more if inspired by the facts and plot. Make sure each creature is distinct and well-connected to the provided materials.""",
                     }
                 ],
             }
@@ -574,18 +575,18 @@ To generate fauna and flora:
 Present your fauna and flora as a JSON object with the following structure, enclosed with the <json> tags:
 
 <json>
-{
+{{
     "faunaAndFlora": [
-        {
+        {{
             "name": "[Species Name]",
             "type": "[Fauna or Flora]",
             "description": "[Detailed description of the species]",
             "habitat": "[Natural habitat]",
             "uses": "[Practical uses or significance]",
             "roleInStory": "[How the species influences the plot or characters]"
-        },
+        }},
     ]
-}
+}}
 </json>
 
 Ensure that your fauna and flora are unique and contribute to the richness of the world-building.""",
@@ -636,17 +637,17 @@ To make connections:
 Present your analysis and enhancements as a JSON object with the following structure, enclosed with the <json> tags:
 
 <json>
-{
+{{
     "plotCharacterConnections": [
-        {
+        {{
             "character": "[Character Name]",
             "contributions": "[How the character contributes to the plot]",
             "relationships": "[Key relationships with other characters]",
             "conflicts": "[Conflicts the character faces]",
             "development": "[How the character evolves throughout the plot]"
-        },
+        }},
     ]
-}
+}}
 </json>
 
 Ensure that your connections enhance the cohesiveness of the story and deepen the reader's engagement with the characters.""",
@@ -700,14 +701,14 @@ To generate suggestions and thoughts:
 Present your suggestions and thoughts as a JSON object with the following structure, enclosed with the <json> tags:
 
 <json>
-{
+{{
     "suggestionsAndThoughts": [
-        {
+        {{
             "area": "[Plot/Character/Theme]",
             "suggestion": "[Detailed suggestion or thought]"
-        },
+        }},
     ]
-}
+}}
 </json>
 
 Ensure that your feedback is constructive and aimed at improving the overall quality of the story.""",
@@ -728,41 +729,44 @@ Ensure that your feedback is constructive and aimed at improving the overall qua
 
 def agent_selector(facts):
     """
-    Uses the AI model to analyze the facts and decide which agents to run.
+    Analyzes the provided facts and decides which agents to run based on the content.
+
+    Returns a list of agent names to run.
     """
-    # Prepare the prompt for the model
+    # Prepare the prompt for the model to decide which agents to run
     prompt = f"""
     You are an assistant that decides which agents to run based on the provided facts.
 
     The available agents are:
-    - character_generator
-    - plot_generator
-    - world_building_generator
-    - generate_magic_system
-    - generate_weapons_and_artifacts
-    - generate_creatures_and_monsters
-    - generate_fauna_and_flora
-    - make_connections_between_plots_and_characters
-    - suggestions_and_thoughts_generator
-    - chapter_outline_generator
-    - analyze_theme_and_tone
-    - generate_dialogues
-    - generate_conflicts_and_resolutions
-    - develop_characters
-    - analyze_genre_and_market
 
-    Analyze the following facts and list which agents should be run to generate appropriate content. Only list the agent names needed, do not include any additional text.
+    <agents>
+        - character_generator
+        - plot_generator
+        - world_building_generator
+        - generate_magic_system
+        - generate_weapons_and_artifacts
+        - generate_creatures_and_monsters
+        - generate_fauna_and_flora
+        - make_connections_between_plots_and_characters
+        - suggestions_and_thoughts_generator
+    <agents>
+
+    Based on the following facts, determine which agents should be run to generate appropriate content.
+    Only list the agent names needed, do not include any additional text.
 
     <facts>
     {facts}
     </facts>
 
-    Provide your answer as a JSON array of agent names, like this:
+    Provide your answer as a JSON array of agent names that are between the <agents> tags, do not use other names that are not specified in agent names. 
+    Enclosed with the <json> tags:
+
     <json>
-    ["agent_name_1", "agent_name_2", ...]
+    ["character_generator", "plot_generator", "world_building_generator", ...]
     </json>
     """
 
+    # Invoke the model with the prompt
     message = model_.invoke(
         input=[{"role": "user", "content": [{"type": "text", "text": prompt}]}]
     )
@@ -773,13 +777,19 @@ def agent_selector(facts):
             content = chunk[1]
             assistant_response += content
 
-    # Extract the JSON response
+    # Extract the JSON array of agent names
     try:
-        json_text = assistant_response.split("<json>")[1].split("</json>")[0].strip()
-        agents_to_run = json.loads(json_text)
-        return agents_to_run
+        json_match = re.search(r"<json>(.*?)</json>", assistant_response, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(1).strip()
+            agent_list = json.loads(json_str)
+            print(colored(agent_list, "blue"), end="", flush=True)
+            return agent_list
+        else:
+            print("Error: No valid JSON found in the assistant's response.")
+            return []
     except Exception as e:
-        print(f"Failed to extract agent list from response: {e}")
+        print(f"Error parsing JSON from response: {e}")
         return []
 
 

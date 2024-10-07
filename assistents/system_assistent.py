@@ -10,7 +10,7 @@ import pywhatkit
 import requests
 
 from utils.loggers import LoggerSetup
-from utils.system_commands import get_system_commands
+from utils.call_commands import get_system_commands
 
 
 class SystemAssistant:

@@ -1,9 +1,7 @@
 import json
 import logging
-import os
 import re
 import shutil
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
@@ -68,24 +66,32 @@ def extract_and_save_json(response, output_file):
         output_file (_type_): _description_
     """
     try:
-        # extract JSON content using regex
-        json_match = re.search(r"<json>(.*?)</json>", response, re.DOTALL)
-        if not json_match:
-            print("Error: No JSON found in the response")
-            return False
+        if re.search(r"<json>(.*?)</json>", response, re.DOTALL):
+            json_match = re.search(r"<json>(.*?)</json>", response, re.DOTALL)
+            if not json_match:
+                print("Error: No JSON found in the response")
 
-        json_str = json_match.group(1).strip()
+            json_str = json_match.group(1).strip()
+        else:
+            json_str = response
 
-        # parse JSON to ensure its valid
-        json_data = json.loads(json_str)
+        # Attempt to parse the JSON string
+        try:
+            json_data = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            print(f"Error: Invalid JSON format: {e}")
+            return None
 
-        # write JSOn to file
+        # Save the valid JSON to a file
         with open(output_file, "w", encoding="utf-8") as file:
             json.dump(json_data, file, indent=2, ensure_ascii=False)
 
-        print(f"JSON succesfully extracted and saved to {output_file}")
-
+        print(f"JSON successfully extracted and saved to {output_file}")
         return json_data
+
+    except Exception as e:
+        print(f"Error occurred while extracting JSON: {e}")
+        return None
 
     except json.JSONDecodeError:
         print("Error: Invalid JSON format in the response")
@@ -146,3 +152,95 @@ def add_chapter_to_dict(chapter_data, all_chapters):
         logging.info(f"Chapter {chapter_num} generated and saved.")
     else:
         logging.error("Failed to add chapter to dictionary due to parsing errors.")
+
+
+def split_text(text, max_chunk_size=2048):
+    """Split text into chunks suitable for LLM processing."""
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    chunks = []
+    current_chunk = ""
+
+    for sentence in sentences:
+        estimated_tokens = (len(current_chunk) + len(sentence)) // 4
+        if estimated_tokens <= max_chunk_size:
+            current_chunk += " " + sentence
+        else:
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+            current_chunk = sentence
+
+            if len(current_chunk) // 4 > max_chunk_size:
+                words = current_chunk.split()
+                sub_chunk = ""
+                for word in words:
+                    if (len(sub_chunk) + len(word)) // 4 <= max_chunk_size:
+                        sub_chunk += " " + word
+                    else:
+                        chunks.append(sub_chunk.strip())
+                        sub_chunk = word
+                if sub_chunk:
+                    chunks.append(sub_chunk.strip())
+                current_chunk = ""
+
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+
+    return chunks
+
+
+def process_text_in_chunks(agent_function, text, *args, **kwargs):
+    """Process the text in chunks using the specified agent function."""
+    chunks = split_text(text)
+    results = []
+
+    for idx, chunk in enumerate(chunks):
+        logging.info(f"Processing chunk {idx + 1}/{len(chunks)}")
+        result = agent_function(chunk, *args, **kwargs)
+        if result:
+            results.append(result)
+        else:
+            logging.error(f"Failed to process chunk {idx + 1}")
+
+    combined_result = "\n".join(results)
+    return combined_result
+
+
+def process_json_in_chunks(agent_function, text, *args, **kwargs):
+    chunks = split_text(text)
+    combined_data = {}
+
+    for idx, chunk in enumerate(chunks):
+        logging.info(f"Processing chunk {idx + 1}/{len(chunks)}")
+        result = agent_function(chunk, *args, **kwargs)
+        if result:
+            # Extract JSON between <json> and </json>
+            json_text = re.search(r"<json>(.*?)</json>", result, re.DOTALL)
+            if json_text:
+                json_content = json_text.group(1).strip()
+                try:
+                    json_result = json.loads(json_content)
+                    # Merge json_result into combined_data
+                    combined_data = merge_json(combined_data, json_result)
+                except json.JSONDecodeError as e:
+                    logging.error(f"JSON decoding error in chunk {idx + 1}: {e}")
+            else:
+                logging.error(f"No JSON found in chunk {idx + 1}")
+        else:
+            logging.error(f"Failed to process chunk {idx + 1}")
+
+    return json.dumps(combined_data, indent=2)
+
+
+def merge_json(combined_data, new_data):
+    for key, value in new_data.items():
+        if key in combined_data:
+            if isinstance(combined_data[key], list) and isinstance(value, list):
+                combined_data[key].extend(value)
+            elif isinstance(combined_data[key], dict) and isinstance(value, dict):
+                combined_data[key] = merge_json(combined_data[key], value)
+            else:
+                # Handle conflicting keys (could be customized)
+                pass
+        else:
+            combined_data[key] = value
+    return combined_data

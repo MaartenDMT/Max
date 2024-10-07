@@ -5,10 +5,10 @@ from agents.music_agent import MusicCreationAgent
 from agents.research_agent import AIResearchAgent
 from agents.video_agent import VideoProcessingAgent
 from agents.webpage_agent import WebsiteProcessingAgent
-from ai_tools.speech.app_speech import SpeechApp
 from agents.writer_agent import AIWriterAgent
+from ai_tools.speech.app_speech import SpeechApp
 from utils.loggers import LoggerSetup
-from utils.system_commands import get_ai_commands
+from utils.call_commands import get_ai_commands
 
 
 class AIAssistant:
@@ -128,7 +128,7 @@ class AIAssistant:
     async def _summarize_youtube(self, query):
         """Handle YouTube summarization task asynchronously."""
         try:
-            await self._speak("Please provide the YouTube video URL.")
+            await self._speak("Please provide the YouTube video URL")
             video_url = await asyncio.to_thread(input, "YouTube video URL: ")
 
             if video_url:
