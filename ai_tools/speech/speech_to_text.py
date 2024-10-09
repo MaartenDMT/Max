@@ -15,6 +15,8 @@ from torch import cuda
 
 from utils.loggers import LoggerSetup
 
+TO_MINUTE = 60
+
 
 class TranscribeFastModel:
     def __init__(
@@ -100,7 +102,10 @@ class TranscribeFastModel:
             full_transcription = ""
             for segment in segments:
                 self.logger.info(
-                    "[%.2fs -> %.2fs] %s", segment.start, segment.end, segment.text
+                    "[%.2fm -> %.2fm] %s",
+                    segment.start / TO_MINUTE,
+                    segment.end / TO_MINUTE,
+                    segment.text,
                 )
                 full_transcription += segment.text + " "
             os.remove(audio_filepath)

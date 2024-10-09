@@ -5,15 +5,20 @@ import shutil
 from pathlib import Path
 
 
-def clean_up():
+def clean_up(where="writer"):
     """
     Moves the 'all_chapters.json' file from the source directory to the destination directory.
     If the file already exists in the destination directory, appends a counter to the filename to avoid overwriting.
     Removes the file if it is empty or contains only "{}".
     """
-    src_path = Path("chapters/all_chapters.json")
-    dst_dir = Path("data/archives")
-    dst_base_name = "all_chapters.json"
+    if "bookwriter" in where:
+        src_path = Path("chapters/all_chapters.json")
+        dst_dir = Path("data/archives")
+        dst_base_name = "all_chapters.json"
+    else:
+        src_path = Path("json/facts.json")
+        dst_dir = Path("data/archives")
+        dst_base_name = "all_chapters.json"
 
     # Check if the source file exists
     if not src_path.exists():

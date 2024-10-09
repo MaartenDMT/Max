@@ -89,6 +89,7 @@ Enclose your JSON within <json> tags. Ensure your JSON is properly formatted and
 
 
 def character_generator(facts, book_description):
+
     # Replace placeholders like {{TEXT}} with real values
 
     message = model_.invoke(
@@ -121,12 +122,6 @@ Using the information from both the text and the book description, create at lea
 5. Explain their potential role or significance in the story.
 6. Incorporate elements from both the provided text and book description.
 
-Before writing your final character descriptions, use the <scratchpad> tags to brainstorm and outline your ideas. Consider how each character can relate to themes, settings, or events mentioned in the text and book description.
-
-<scratchpad>
-[Use this space to brainstorm and outline your character ideas]
-</scratchpad>
-
 Now, provide your detailed character descriptions in JSON format. Enclose your JSON within <json> tags. The JSON structure should be an array of character objects, each containing 'name' and 'description' fields. Be sure to enclose it with <json> tags.
 
 <json>
@@ -134,16 +129,20 @@ Now, provide your detailed character descriptions in JSON format. Enclose your J
     {{
         "name": "[Character Name]",
         "description": "[Detailed character description including physical characteristics, personality traits, background, and potential role in the story]"
-    }},
+    }}
 ]
 </json>
 
-Ensure that you create at least 5 unique characters, but feel free to generate more if inspired by the text and book description. Make each character distinct and memorable, with clear connections to the provided materials.""",
+Ensure that you create at least 5 unique characters, but feel free to generate more if inspired by the text and book description. 
+Make each character distinct and memorable, with clear connections to the provided materials. 
+Ensure your JSON is properly formatted and valid, be sure to double check it. After the </json> tag, do not write anything else.
+""",
                     }
                 ],
             }
         ]
     )
+
     assistant_response = ""
     for chunk in message:
         if isinstance(chunk, tuple) and chunk[0] == "content":
@@ -208,30 +207,27 @@ Present your detailed plot outline as a JSON object with the following structure
         {{
             "name": "[Character name]",
             "role": "[Character's role in the story]"
-        }},
-
+        }}
     ],
     "plotSummary": "[Write a brief overview of the entire plot]",
-    "plotStructure": {
+    "plotStructure": {{
         "exposition": "[Describe the exposition]",
         "risingAction": "[Describe the rising action]",
         "climax": "[Describe the climax]",
         "fallingAction": "[Describe the falling action]",
         "resolution": "[Describe the resolution]"
-    },
+    }},
     "subplots": [
         {{
             "title": "[Subplot title]",
             "description": "[Brief description of the subplot]"
-        }},
-
+        }}
     ],
     "characterArcs": [
         {{
             "character": "[Character Name]",
             "arc": "[Description of the character's development]"
-        }},
-
+        }}
     ],
     "themes": [
         "[Theme 1]",
@@ -248,12 +244,14 @@ Present your detailed plot outline as a JSON object with the following structure
 }}
 </json>
 
-Ensure that your plot outline is coherent, engaging, and makes full use of the provided facts and character descriptions. The plot should be detailed enough to serve as a comprehensive guide for writing a full-length novel.""",
+Ensure that your plot outline is coherent, engaging, and makes full use of the provided facts and character descriptions. 
+The plot should be detailed enough to serve as a comprehensive guide for writing a full-length novel.""",
                     }
                 ],
             }
         ]
     )
+
     assistant_response = ""
     for chunk in message:
         if isinstance(chunk, tuple) and chunk[0] == "content":
@@ -740,18 +738,16 @@ def agent_selector(facts):
     The available agents are:
 
     <agents>
-        - character_generator
-        - plot_generator
-        - world_building_generator
-        - generate_magic_system
-        - generate_weapons_and_artifacts
-        - generate_creatures_and_monsters
-        - generate_fauna_and_flora
-        - make_connections_between_plots_and_characters
-        - suggestions_and_thoughts_generator
-    <agents>
+        - world building generator
+        - generate magic system
+        - generate weapons and artifacts
+        - generate creatures and monsters
+        - generate fauna and flora
+        - make connections between plots and characters
+        - suggestions and thoughts generator
+    </agents>
 
-    Based on the following facts, determine which agents should be run to generate appropriate content.
+    Based on the following facts, determine which <agents> should be run to generate appropriate content.
     Only list the agent names needed, do not include any additional text.
 
     <facts>
@@ -762,7 +758,7 @@ def agent_selector(facts):
     Enclosed with the <json> tags:
 
     <json>
-    ["character_generator", "plot_generator", "world_building_generator", ...]
+    ["generate magic system", "make connections between plots and characters", "world building generator", ...]
     </json>
     """
 
@@ -788,6 +784,9 @@ def agent_selector(facts):
         else:
             print("Error: No valid JSON found in the assistant's response.")
             return []
+    except json.JSONDecodeError as e:
+        print(f"Error parsing JSON from response: {e}")
+        return []
     except Exception as e:
         print(f"Error parsing JSON from response: {e}")
         return []

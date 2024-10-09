@@ -37,7 +37,7 @@ class WriterAssistant:
 
     async def create_story(self):
         """Function to create and generate the story."""
-        clean_up()
+        # clean_up()
         self.logger.info("Cleaning up the previous story")
 
         try:
@@ -91,27 +91,24 @@ class WriterAssistant:
                 None,
             )
 
-            # Run the selected agents
-            if "character generator" in agents_to_run:
-                characters_response = character_generator(facts, book_description)
-                characters = extract_and_save_json(
-                    characters_response,
-                    "ai_tools/ai_write_assistent/json/characters.json",
-                )
-                if not characters:
-                    self.logger.error("Failed to generate characters.")
-                    return
-                characters = str(characters)
+            characters_response = character_generator(facts, book_description)
+            characters = extract_and_save_json(
+                characters_response,
+                "ai_tools/ai_write_assistent/json/characters.json",
+            )
+            if not characters:
+                self.logger.error("Failed to generate characters.")
+                return
+            characters = str(characters)
 
-            if "plot generator" in agents_to_run:
-                plot_response = plot_generator(facts, characters)
-                plot = extract_and_save_json(
-                    plot_response, "ai_tools/ai_write_assistent/json/plot.json"
-                )
-                if not plot:
-                    self.logger.error("Failed to generate plot.")
-                    return
-                plot = str(plot)
+            plot_response = plot_generator(facts, characters)
+            plot = extract_and_save_json(
+                plot_response, "ai_tools/ai_write_assistent/json/plot.json"
+            )
+            if not plot:
+                self.logger.error("Failed to generate plot.")
+                return
+            plot = str(plot)
 
             if "world building generator" in agents_to_run:
                 world_response = world_building_generator(facts, plot)
