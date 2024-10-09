@@ -86,7 +86,6 @@ class YouTubeSummarizer:
 
     def split_text(self, text, max_chunk_size=MAX_CHUNK_SIZE):
         """Split text into chunks suitable for LLM processing."""
-        import re
 
         # Split the text into sentences
         sentences = re.split(r"(?<=[.!?])\s+", text)
@@ -132,31 +131,31 @@ class YouTubeSummarizer:
                 prompt_text = "Provide a brief summary based on the following content:\n\n{context}"
             else:
                 prompt_text = """
-                    You are an expert summarizer. Read the following context and provide a detailed summary **following this exact format**:
+You are an expert summarizer. Read the following context and provide a detailed summary **following this exact format**:
 
-                    **Summary of Part X**
+### Summary of Part X
 
-                    Begin with a brief introduction summarizing the overall theme of the discussion.
+Begin with a brief introduction summarizing the overall theme of the discussion.
 
-                    Then, for each main topic discussed, present it as a header and explain what was said about it in bullet points. Follow this structure:
+Then, for each main topic discussed, present it as a header and explain what was said about it in bullet points. Follow this structure:
 
-                    **[Topic Name]**
+### [Topic Name]
 
-                    - Key point 1 about the topic.
-                    - Key point 2 about the topic.
-                    - Additional details, examples, or speaker recommendations related to the topic.
+- Key point 1 about the topic.
+- Key point 2 about the topic.
+- Additional details, examples, or speaker recommendations related to the topic.
 
-                    Continue this format for each topic.
+Continue this format for each topic.
 
-                    Conclude with any overall insights or themes emphasized by the speaker.
+Conclude with any overall insights or themes emphasized by the speaker.
 
-                    **Please ensure that:**
-                    - Each topic is clearly highlighted as a header.
-                    - Under each topic, you provide detailed bullet points explaining what was said.
-                    - The summary strictly adheres to this format without adding or omitting any sections.
+### Please ensure that:
+- Each topic is clearly highlighted as a header.
+- Under each topic, you provide detailed bullet points explaining what was said.
+- The summary strictly adheres to this format without adding or omitting any sections.
 
-                    context:
-                    {context}
+context:
+{context}
 """
 
             # Define the template using PromptTemplate
@@ -207,7 +206,7 @@ class YouTubeSummarizer:
         meta = f"""---
 status: inputs/-
 medium: video/youtube
-channel: {channel}
+channel: "[[{channel}]]"
 up:
 - "[[Youtube list]]"
 - "[[{clean_title} Application]]"
@@ -289,7 +288,7 @@ link: {url}
                 self.logger.info(f"Summarizing chunk {idx + 1}/{len(chunks)}")
                 summary = self.process_chat(chain, chunk, idx + 1)
                 if summary:
-                    summaries.append(f"### Summary of Part {idx + 1}\n{summary}\n")
+                    summaries.append(f"## Summary of Part {idx + 1}\n{summary}\n")
                 else:
                     self.logger.error(f"Summarization failed for chunk {idx + 1}.")
 

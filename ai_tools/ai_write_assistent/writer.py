@@ -44,8 +44,10 @@ class WriterAssistant:
             user_input_description = input("Enter a description of the book: ")
 
             if not user_input_description:
-                self.logger.error("Invalid input. Please provide a valid description.")
-                return
+                description = "description.txt"
+                user_input_description = get_file_contents(
+                    f"ai_tools/ai_write_assistent/data/{description}"
+                )
 
             book_description = user_input_description
             text_source = "story.txt"
@@ -72,8 +74,8 @@ class WriterAssistant:
             facts = str(facts)
 
             # Use agent_selector to decide which agents to run
-            agents_to_run = agent_selector(facts)
-            agents_to_run = str(agent_selector).lower()
+            agents_to_run = str(agent_selector(facts)).lower()
+
             # Initialize variables to store outputs
             characters, plot, world, magic_system, weapons_and_artifacts = (
                 None,
