@@ -1,3 +1,4 @@
+import datetime
 import os
 import re
 
@@ -8,7 +9,7 @@ from langchain_ollama import ChatOllama
 
 from utils.loggers import LoggerSetup
 
-MAX_CHUNK_SIZE = 2048
+MAX_CHUNK_SIZE = 2048  # 2048 1024
 
 
 class YouTubeSummarizer:
@@ -204,14 +205,13 @@ context:
     def meta_data(self, clean_title, url, channel):
         "save the meta data"
         meta = f"""---
-status: inputs/-
+status: inputs/summary
 medium: video/youtube
 channel: "[[{channel}]]"
 up:
-- "[[Youtube list]]"
-- "[[{clean_title} Application]]"
-created-date: 2024-10-04 00:15
-updated-date: 2024-10-06 18:10
+- "[[{clean_title} Coneept Map.canvas|{clean_title} Coneept Map]]"
+created-date: <% tp.file.creation_date() %>
+updated-date: <% tp.date.now("YYYY-MM-DD HH:MM") %>
 tags:
 - youtube
 link: {url}
@@ -316,3 +316,5 @@ link: {url}
         except Exception as e:
             self.logger.error(f"Error during YouTube summarization: {e}")
             return None, f"An error occurred while processing the video: {str(e)}"
+        finally:
+            os.remove(os.path.join(self.download_path, "youtube_audio.wav"))

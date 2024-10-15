@@ -396,13 +396,13 @@ Present your magic system as a JSON object with the following structure, enclose
 
 <json>
 {{
-    "magicSystem": {
+    "magicSystem": {{
         "principles": "[Description of the fundamental principles of magic]",
         "access": "[Explanation of how magic is accessed and learned]",
         "limitations": "[Details of limitations and consequences of using magic]",
         "influence": "[Description of how magic influences society and the environment]",
         "integration": "[Explanation of how the magic system integrates with the plot and characters]"
-    }
+    }}
 }}
 </json>
 
@@ -737,28 +737,27 @@ def agent_selector(facts):
 
     The available agents are:
 
-    <agents>
-        - world building generator
-        - generate magic system
-        - generate weapons and artifacts
-        - generate creatures and monsters
-        - generate fauna and flora
-        - make connections between plots and characters
-        - suggestions and thoughts generator
-    </agents>
+    - world building generator
+    - generate magic system
+    - generate weapons and artifacts
+    - generate creatures and monsters
+    - generate fauna and flora
+    - make connections between plots and characters
+    - suggestions and thoughts generator
 
-    Based on the following facts, determine which <agents> should be run to generate appropriate content.
-    Only list the agent names needed, do not include any additional text.
+    You must choose only from the above agents.
+
+    Based on the following facts, decide which agents should be run to generate appropriate content. 
+    Only return the exact agent names that are listed above. Do not include any names that are not on this list.
 
     <facts>
     {facts}
     </facts>
 
-    Provide your answer as a JSON array of agent names that are between the <agents> tags, do not use other names that are not specified in agent names. 
-    Enclosed with the <json> tags:
+    Provide your answer as a JSON array of agent names (only from the list above) do not use names coming from the facts, enclosed with the <json> tags:
 
     <json>
-    ["generate magic system", "make connections between plots and characters", "world building generator", ...]
+    [agents]
     </json>
     """
 

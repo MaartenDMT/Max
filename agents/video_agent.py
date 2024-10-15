@@ -31,7 +31,7 @@ class VideoProcessingAgent:
             return full_text, summary
 
         except Exception as e:
-            return f"An error occurred while processing the video: {str(e)}"
+            return None, f"An error occurred while processing the video: {str(e)}"
 
     def handle_user_input(self, user_input):
         """
@@ -39,7 +39,8 @@ class VideoProcessingAgent:
         If so, it calls process_user_request to summarize the video.
         """
         if "youtube.com" in user_input or "youtu.be" in user_input:
-            return self.process_user_request(user_input)
+            self.process_user_request(user_input)
+            return
         else:
             return (
                 None,

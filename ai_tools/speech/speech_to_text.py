@@ -12,10 +12,12 @@ from prompt_toolkit.key_binding import KeyBindings
 from pynput import keyboard
 from scipy.io.wavfile import write
 from torch import cuda
-
+from pydub import AudioSegment
+from pathlib import Path
 from utils.loggers import LoggerSetup
 
 TO_MINUTE = 60
+MAX_SIZE_MB = 400  # Maximum size in MB
 
 
 class TranscribeFastModel:
@@ -95,20 +97,38 @@ class TranscribeFastModel:
     def transcribe(self, audio_filepath):
         """Transcribe the audio file using Whisper."""
         try:
-            self.logger.info(f"Transcribing audio file: {audio_filepath}")
-            segments, info = self.model.transcribe(
-                audio_filepath, beam_size=5, language="en"
-            )
-            full_transcription = ""
-            for segment in segments:
+            # Check the file size in bytes
+            file_size_bytes = os.path.getsize(audio_filepath)
+            # Convert to MB
+            file_size_mb = file_size_bytes / (1024 * 1024)
+
+            if file_size_mb > MAX_SIZE_MB:
                 self.logger.info(
-                    "[%.2fm -> %.2fm] %s",
-                    segment.start / TO_MINUTE,
-                    segment.end / TO_MINUTE,
-                    segment.text,
+                    f"File size {file_size_mb:.2f} MB exceeds {MAX_SIZE_MB} MB, splitting audio."
                 )
-                full_transcription += segment.text + " "
-            os.remove(audio_filepath)
+                # Split the audio file
+                audio_segments = split_audio(audio_filepath)
+            else:
+                self.logger.info(f"Transcribing audio file: {audio_filepath}")
+                audio_segments = [audio_filepath]  # No splitting needed
+
+            full_transcription = ""
+            for segment_filepath in audio_segments:  # Changed variable name here
+                self.logger.info(f"Transcribing segment: {segment_filepath}")
+                segments, info = self.model.transcribe(
+                    segment_filepath, beam_size=5, language="en"
+                )
+
+                for transcribed_segment in segments:  # Changed variable name here
+                    self.logger.info(
+                        "[%.2fm -> %.2fm] %s",
+                        transcribed_segment.start / TO_MINUTE,
+                        transcribed_segment.end / TO_MINUTE,
+                        transcribed_segment.text,
+                    )
+                    full_transcription += transcribed_segment.text + " "
+                os.remove(segment_filepath)  # Remove the segment after transcription
+
             self.logger.info(f"Transcription completed: {full_transcription}")
             return full_transcription
         except Exception as e:
@@ -155,6 +175,23 @@ class TranscribeFastModel:
         finally:
             if self.app and self.app.is_running:
                 self.app.exit()
+
+
+def split_audio(audio_filepath):
+    """Splits the audio file into smaller segments using pydub."""
+    audio = AudioSegment.from_file(audio_filepath)
+    segment_length = 60 * 60 * 1000  # 60 minutes in milliseconds
+    segments = []
+
+    for start in range(0, len(audio), segment_length):
+        end = min(start + segment_length, len(audio))
+        segment = audio[start:end]
+        time = (start // 1000) // 60
+        segment_filename = f"data/audio/segments/segment_{time}.wav"
+        segment.export(segment_filename, format="wav")
+        segments.append(segment_filename)
+
+    return segments
 
 
 class TranscribeSlowModel:
