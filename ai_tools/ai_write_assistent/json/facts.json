@@ -1,520 +1,126 @@
 {
-  "People and Organizations": {
-    "Speaker's Name": {
-      "value": "Unknown",
-      "certainty": "low"
+  "Names": {
+    "Ying Yang": {
+      "Category": "Concept",
+      "Description": "A concept from Chinese philosophy associated with balance between opposing forces."
     },
-    "Author": {
-      "value": "Unknown",
-      "certainty": "low"
-    }
-  },
-  "Statistics and Data": {
-    "Worst Romance Trope": {
-      "value": "AI relationship",
-      "percent": "56%"
+    "Chaos": {
+      "Category": "Placeholder Name",
+      "Description": "A name used here for a person with the surname 'Chaos.'"
     },
-    "Cringiest Toxic Love Trope": {
-      "value": "Stock or love interest",
-      "percent": "38%"
-    },
-    "Worst Conflict in a Romance": {
-      "value": "Cheating",
-      "percent": "65%"
-    },
-    "Most Hated Plot Twist": {
-      "value": "It was all a dream",
-      "percent": "65%"
-    }
-  },
-  "Definitions and Terms": {
-    "Pretty Mean Cheerleader": {
-      "definition": "A stereotypical cheerleader character"
-    },
-    "Force Proximity": {
-      "definition": "A plot device where characters are forced to spend time together"
-    }
-  },
-  "Books and Authors": {
-    "Book Titles": [
-      {
-        "title": "Unknown",
-        "genre": "Fantasy Literature"
-      }
-    ],
-    "Author Genres": [
-      {
-        "author": "Unknown",
-        "genres": [
-          "Romance",
-          "Fantasy"
-        ]
-      }
-    ]
-  },
-  "People": [
-    {
-      "Name": "Robert A. Monroe",
-      "Occupation": "Founder of The Monroe Institute"
-    },
-    {
-      "Name": "Bob Monroe",
-      "Occupation": "Researcher and pioneer in the study of consciousness"
-    },
-    {
-      "Name": "Dr. Twenlow",
-      "Occupation": "Researcher"
-    }
-  ],
-  "Organizations": [
-    {
-      "Name": "The Monroe Institute",
-      "Description": "An educational non-profit organization dedicated to exploring human consciousness and developing personal growth techniques"
-    }
-  ],
-  "Scientific Concepts": [
-    {
-      "Concept": "Hologram",
-      "Definition": "A three-dimensional image formed by the interference of light waves"
-    },
-    {
-      "Concept": "Brain Hemisphere Synchronization",
-      "Description": "The process of synchronizing the two brain hemisphere wave patterns to achieve a state of heightened alertness and consciousness"
-    }
-  ],
-  "Numerical Data": [
-    {
-      "Value": "10",
-      "Unit": "numbers",
-      "Context": "Computer-generated numbers that individuals attempted to read in OBE experiments"
-    },
-    {
-      "Value": "1900",
-      "Unit": "approximate year",
-      "Context": "The approximate time period when the concept of the universe as a hologram was first shared across various cultures and civilizations"
-    }
-  ],
-  "Processes and Procedures": [
-    {
-      "Name": "Gateway Technique",
-      "Description": "A repetitive practice technique that uses each new insight as a means of penetrating further during the next practice session"
-    },
-    {
-      "Name": "Transcendental Meditation",
-      "Description": "A form of mental self-discipline"
-    }
-  ],
-  "Definitions": [
-    {
-      "Term": "Omnipotent and Omniscient Divinity",
-      "Definition": "An all-powerful and all-knowing divine being"
-    },
-    {
-      "Term": "Self-Consciousness",
-      "Definition": "The state of being aware of one's own existence and consciousness"
-    }
-  ],
-  "Descriptive Data": [
-    {
-      "Category": "Energy Patterns",
-      "Description": "Patterns left by people or events occurring at the same physical site, but from the past"
-    },
-    {
-      "Category": "Thought Forms",
-      "Description": "Mental constructs that mingle with physical reality and are not easily differentiated"
-    }
-  ],
-  "Dates and Times": [
-    {
-      "Value": "",
-      "Unit": "",
-      "Context": ""
-    }
-  ],
-  "Events": [
-    {
-      "Name": "",
-      "Description": ""
-    }
-  ],
-  "ScientificFacts": {
-    "Physics": [
-      {
-        "fact": "Energy cannot be created or destroyed, only transformed from one form to another.",
-        "certainty": "high"
-      },
-      {
-        "fact": "In an isolated system, the total entropy can never decrease over time.",
-        "certainty": "high"
-      },
-      {
-        "fact": "For every action, there is an equal and opposite reaction.",
-        "certainty": "high"
-      }
-    ],
-    "Chemistry": [
-      {
-        "fact": "Matter cannot be created or destroyed in a closed system.",
-        "certainty": "high"
-      },
-      {
-        "fact": "When a system at equilibrium is disturbed, it will adjust to minimize the disturbance.",
-        "certainty": "high"
-      }
-    ],
-    "Biology": [
-      {
-        "fact": "Traits that enhance survival and reproduction become more common in successive generations.",
-        "certainty": "high"
-      },
-      {
-        "fact": "Living organisms regulate their internal environment to maintain a stable, constant condition.",
-        "certainty": "high"
-      }
-    ],
-    "Geology": [
-      {
-        "fact": "The same natural laws and processes that operate in the universe now have always operated in the universe in the past.",
-        "certainty": "high"
-      }
-    ]
-  },
-  "DefinitionsOfTerms": {
-    "Magic": {
-      "definition": "A form of energy or power that can be manipulated by magic users.",
-      "note": "Uncertain definition; may vary depending on context."
-    },
-    "Sorcerers": {
-      "definition": "A type of magic user who possesses innate magical abilities.",
-      "certainty": "low"
-    },
-    "Mages": {
-      "definition": "A type of magic user who has learned and mastered the use of magic through study and practice.",
-      "certainty": "high"
-    },
-    "Warlocks": {
-      "definition": "A type of magic user who has entered into a pact with a supernatural being to gain magical power.",
-      "certainty": "low"
-    }
-  },
-  "DescriptionsOfProcessesOrProcedures": {
-    "Spells": [
-      {
-        "process": "The use of magic to achieve a specific effect or outcome.",
-        "note": "Uncertain specifics; may vary depending on context."
-      },
-      {
-        "process": "Spells can be cast using various forms of energy, including physical and mental effort.",
-        "certainty": "high"
-      }
-    ],
-    "Magic System": {
-      "description": "A system of rules and principles that govern the use of magic.",
-      "note": "Uncertain specifics; may vary depending on context."
-    }
-  },
-  "HistoricalEvents": [],
-  "DatesAndTimes": [],
-  "NamesOfPeoplePlacesOrOrganizations": [],
-  "NumericalData": [],
-  "ConsequencesOfUsingMagic": {
-    "costs": [
-      {
-        "consequence": "Spells can have unintended effects or consequences.",
-        "certainty": "high"
-      },
-      {
-        "consequence": "The use of magic can have negative impacts on the environment or living beings.",
-        "certainty": "high"
-      }
-    ],
-    "rules": [
-      {
-        "rule": "Magic users must draw energy from their surroundings to perform spells.",
-        "certainty": "high"
-      },
-      {
-        "rule": "Spells that create order are inherently more difficult or require more energy.",
-        "certainty": "high"
-      }
-    ]
-  },
-  "SystemsForMagicUsersToLearnAndGrow": {
-    "system": [
-      {
-        "process": "Magic users can learn and improve their abilities through practice, study, and mentorship.",
-        "certainty": "high"
-      },
-      {
-        "process": "The use of magic can be influenced by the user's personality, skills, and experiences.",
-        "note": "Uncertain specifics; may vary depending on context."
-      }
-    ]
-  },
-  "RoleOfMagicInTheWorldsHistoryAndPolitics": {
-    "influence": [
-      {
-        "fact": "Magic has shaped the course of events throughout history.",
-        "certainty": "high"
-      },
-      {
-        "fact": "The use of magic can influence current conflicts or power struggles.",
-        "note": "Uncertain specifics; may vary depending on context."
-      }
-    ]
-  },
-  "categories": {
-    "definitions": [
-      {
-        "term": "Elemental",
-        "description": "subset of the Magic System focusing on elemental manipulation"
-      },
-      {
-        "term": "Magic System",
-        "description": "broader framework for understanding magic"
-      },
-      {
-        "term": "Origo",
-        "description": "most pure form of magic"
-      }
-    ],
-    "processes": [
-      {
-        "process": "spellcasting",
-        "description": "framework for spellcasting and magical energy manipulation"
-      },
-      {
-        "process": "magical energy manipulation",
-        "description": "harnessing and balancing elemental energies"
-      }
-    ],
-    "systems": [
-      {
-        "system": "Magical Exhaustion",
-        "description": "cost or consequence of using magic"
-      },
-      {
-        "system": "Spellcasting Frameworks",
-        "description": "framework for spellcasting influenced by user's intentions, emotions, and focus"
-      }
-    ],
-    "concepts": [
-      {
-        "concept": "elemental resonance",
-        "description": "frequencies or energies resonating with specific elements, locations, or objects"
-      },
-      {
-        "concept": "elemental balance",
-        "description": "harmony in the world maintained by balancing elemental energies"
-      }
-    ]
-  },
-  "ideas": [
-    {
-      "idea": "Elemental Resonance",
-      "certainty": "high"
-    },
-    {
-      "idea": "Magical Exhaustion",
-      "certainty": "high"
-    },
-    {
-      "idea": "Spellcasting Frameworks",
-      "certainty": "high"
-    }
-  ],
-  "Sub-paths": {
-    "Revolution": {
-      "description": "A path that seeks to overthrow existing power structures and institutions, often through violent or disruptive means"
-    },
-    "Discovery": {
-      "description": "A path that prioritizes exploration, experimentation, and innovation, potentially leading to ground-breaking discoveries and advancements"
-    }
-  },
-  "Categories": [
-    {
-      "name": "Discipline",
-      "sub-paths": [
-        "Precision"
-      ]
-    },
-    {
-      "name": "Harmony",
-      "sub-paths": [
-        "Chaos"
-      ]
-    },
-    {
-      "name": "Faith",
-      "sub-paths": [
-        "Dogma"
-      ]
-    }
-  ],
-  "Processes": {
-    "Self-control": {
-      "description": "A process focused on maintaining control and composure in various situations"
-    },
-    "Experimentation": {
-      "description": "A process that involves trying new things, testing hypotheses, and learning from outcomes"
-    }
-  },
-  "definitions": {
-    "manipulation": {
-      "definition": "the act of influencing or controlling someone's behavior",
-      "certainty": "high"
-    },
-    "authoritarianism": {
-      "definition": "a system of government where one person has complete control over others",
-      "certainty": "high"
-    }
-  },
-  "processes": {
-    "bribery": {
-      "description": "the act of giving or receiving something in exchange for a favor or influence",
-      "certainty": "high"
-    },
-    "embezzlement": {
-      "description": "the act of stealing money from an organization or business",
-      "certainty": "high"
-    }
-  },
-  "verifiable claims": {
-    "consequences of corruption": {
-      "statement": "corruption can lead to instability and chaos in a system",
-      "certainty": "medium"
-    },
-    "potential for story conflict": {
-      "statements": [
-        {
-          "statement": "The balance of power between humans and angels is disrupted.",
-          "certainty": "high"
-        },
-        {
-          "statement": "Characters must navigate their fears to wield magic effectively.",
-          "certainty": "high"
-        }
-      ],
-      "category": "story conflict"
-    }
-  },
-  "magic systems": {
-    "Wrestling Angels": {
-      "key points": [
-        {
-          "point": "A girl waits outside in a hurricane for an angel that rides the wind, and they wrestle in a spiritual plane.",
-          "certainty": "high"
-        },
-        {
-          "point": "If the girl wins, she gains power; if the angel wins, he gains power.",
-          "certainty": "high"
-        }
-      ],
-      "potential for story conflict": [
-        "The balance of power between humans and angels is disrupted."
-      ]
-    },
-    "Inkfile": {
-      "key points": [
-        {
-          "point": "A tattoo-based magic system where potency depends on a tattoo received at a certain age and understanding of its significance.",
-          "certainty": "high"
-        },
-        {
-          "point": "Fear can be harnessed into a weapon, but removing it brings back the terror tenfold.",
-          "certainty": "high"
-        }
-      ],
-      "potential for story conflict": [
-        "Characters must navigate their fears to wield magic effectively."
-      ]
-    },
-    "Book of Scribes": {
-      "key points": [
-        {
-          "point": "An artifact that records events as they happen and allows erasure of effects from one person to another.",
-          "certainty": "high"
-        },
-        {
-          "point": "This system raises questions about fate, destiny, and the consequences of altering events.",
-          "certainty": "high"
-        }
-      ],
-      "potential for story conflict": [
-        "Characters must navigate the complexities of recorded history."
-      ]
-    },
-    "Nimancy": {
-      "key points": [
-        {
-          "point": "A magic system that uses memories and experiences as fuel to cast spells.",
-          "certainty": "high"
-        },
-        {
-          "point": "This concept raises questions about the nature of memories, their manipulation, and potential consequences.",
-          "certainty": "high"
-        }
-      ],
-      "potential for story conflict": [
-        "Characters must navigate the complexities of recorded history."
+    "Sons": {
+      "Subcategory": "Power",
+      "Options": [
+        "Revolution",
+        "Anarchy's Edge",
+        "Mayhem",
+        "Freedom's Call"
       ]
     }
   },
-  "names": {
-    "Alan": {},
-    "Aaron": {},
-    "Jan": {}
+  "Power": {
+    "Mayhem": {
+      "Category": "Power Dynamics",
+      "Options": [
+        "Anarchy's Edge",
+        "Mayhem"
+      ]
+    },
+    "Freedom's Call": {
+      "Category": "Power Dynamics",
+      "Description": "A call for liberation and freedom from constraints."
+    }
   },
-  "magicSystems": [
+  "Faith": {
+    "Blessed": {
+      "Category": "Faith Paths",
+      "Description": "A spiritual path associated with blessings and divine favor."
+    },
+    "Readers": {
+      "Category": "Faith Paths",
+      "Description": "Involves engagement in religious texts and practices."
+    },
+    "Spirituality": {
+      "Category": "Faith Concepts",
+      "Description": "The pursuit of inner meaning and personal growth through faith."
+    },
+    "Dogma": {
+      "Category": "Faith Systems",
+      "Description": "A set of beliefs and practices forming the foundation of a faith."
+    },
+    "Faith's Call": {
+      "Category": "Faith Paths",
+      "Description": "A call or direction from faith to guide personal actions or decisions."
+    },
+    "Mysticism": {
+      "Category": "Faith Concepts",
+      "Description": "Involves introspection and spiritual practices for self-discovery."
+    }
+  },
+  "Life": {
+    "Rebirth": {
+      "Category": "Life Paths",
+      "Options": [
+        "Evolution",
+        "Progression",
+        "Transformation"
+      ]
+    },
+    "Evolution": {
+      "Category": "Life Progression",
+      "Description": "A continuous change in development and growth."
+    }
+  },
+  "magic_systems": [
     {
-      "name": "Memory-based magic",
-      "description": "uses memories to fuel craft"
+      "name": "Soft Power",
+      "description": "Focuses on mimetic beings called rhythms that form shimmery clouds."
+    },
+    {
+      "name": "Prophecy",
+      "description": "A vision or information revealed through a character's experience."
     },
     {
       "name": "Lacrimaturgy",
-      "description": "people cry colors with different properties and uses"
+      "description": "Involves people crying colors with different properties and uses."
     },
     {
-      "name": "Heartbeat-based magic",
-      "description": "holds specific heartbeats has trade-offs"
+      "name": "Heartbeat",
+      "description": "A societal construct affecting interactions, which can be pleasant or intimidating."
     },
     {
-      "name": "Soft Power (The Lay)",
-      "description": "analogical representation of power structures"
+      "name": "Rhythms",
+      "description": "Mimetic beings formed by focused heartbeats creating shimmery clouds."
     }
   ],
-  "worldBuilding": [
+  "participants": [
     {
-      "concept": "backstory and lore",
-      "description": "key aspect of world-building"
+      "name": "Jan"
     },
     {
-      "concept": "geography and politics",
-      "description": "connected tightly in the magic system based on bloodlines of gods"
+      "name": "Pavel"
+    },
+    {
+      "name": "Pavel"
     }
   ],
-  "storytellingTechniques": [
+  "key_points": [
     {
-      "technique": "plot twists and mystery",
-      "description": "used to create suspense and surprise"
+      "topic": "magic_systems",
+      "point": "Each system is defined by a unique process and procedure."
     },
     {
-      "technique": "immersion through vivid imagery and symbolism",
-      "description": "used in a horror fantasy story"
+      "topic": "writing_style",
+      "point": "The use of descriptive language enhances immersion."
+    },
+    {
+      "topic": "plot_twists",
+      "point": "A big plot twist reveals the magic system as a tool in a murder mystery."
     }
   ],
-  "competitionDetails": {
-    "prizeMoney": "$1000",
-    "winnerSelection": "one writer will win the prize"
-  },
-  "evaluationCriteria": [
+  "historical_context": [
     {
-      "criterion": "world-building depth and coherence",
-      "description": "important aspect of magic system evaluation"
-    },
-    {
-      "criterion": "storytelling effectiveness and engagement",
-      "description": "key factor in evaluating competition entries"
+      "text": "Circa 1900, empires rise and fall, changing societal structures."
     }
   ]
 }

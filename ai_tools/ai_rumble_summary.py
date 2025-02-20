@@ -1,5 +1,6 @@
 import os
 from langchain_ollama import ChatOllama
+
 from utils.loggers import LoggerSetup
 from utils.common.shared_summarize_utils import (
     get_video_info,
@@ -17,7 +18,7 @@ from utils.common.shared_summarize_utils import (
 MAX_CHUNK_SIZE = 2048
 
 
-class YouTubeSummarizer:
+class RumbleSummarizer:
     def __init__(
         self, transcribe_model, download_path="data/audio/", output_path="data/text/"
     ):
@@ -26,23 +27,21 @@ class YouTubeSummarizer:
         self.output_path = output_path
         self.audio_filename = os.path.join(self.download_path, "audio.wav")
 
-        self.llm = ChatOllama(model="llama3.1", temperature=0.2, num_predict=-1)
+        self.llm = ChatOllama(
+            model="deepseek-r1:latest", temperature=0.2, num_predict=-1
+        )
 
         log_setup = LoggerSetup()
-        self.logger = log_setup.get_logger(
-            "YouTubeSummarizer", "youtube_summarizer.log"
-        )
-        self.logger.info("YouTube Summarizer initialized.")
+        self.logger = log_setup.get_logger("RumbleSummarizer", "rumble_summarizer.log")
+        self.logger.info("Rumble Summarizer initialized.")
 
     def summarize(self, video_url, summary_length="detailed"):
         try:
             self.logger.info(f"Summarization started for {video_url}")
             video_info = get_video_info(video_url, self.logger)
-            if not video_info:
-                return None, "Failed to retrieve video information."
-
             cleaned_title = clean_title(video_info["title"])
-            channel = video_info.get("channel")
+            channel = video_info.get("uploader", "Unknown")
+
             transcription_filename = f"{cleaned_title}_full.txt"
             transcription_filepath = os.path.join(
                 self.output_path, transcription_filename
@@ -60,7 +59,7 @@ class YouTubeSummarizer:
                     self.audio_filename, self.transcribe_model, self.logger
                 )
                 if not transcribed_text:
-                    return None, "Transcription failed. Please try again."
+                    return None, "Transcription failed."
                 save_text(transcribed_text, transcription_filename, self.output_path)
 
             chunks = split_text(transcribed_text, MAX_CHUNK_SIZE)
@@ -80,13 +79,14 @@ class YouTubeSummarizer:
             self.logger.info(
                 f"Total summaries generated: {len(summaries)} out of {len(chunks)}"
             )
+
             if not summaries:
                 return transcribed_text, "Summarization failed."
 
             combined_summary = "\n".join(summaries)
 
             summary_filename = f"{cleaned_title}.md"
-            meta = meta_data(cleaned_title, video_url, channel)
+            meta = meta_data(cleaned_title, video_url, channel, "rumble")
             save_md(
                 combined_summary,
                 summary_filename,
@@ -99,8 +99,8 @@ class YouTubeSummarizer:
             self.logger.info(f"Summary saved to {summary_filename}")
             return transcribed_text, combined_summary
         except Exception as e:
-            self.logger.error(f"Error during YouTube summarization: {e}")
-            return None, f"An error occurred while processing the video: {str(e)}"
+            self.logger.error(f"Error during Rumble summarization: {e}")
+            return None, f"An error occurred: {str(e)}"
         finally:
             if os.path.exists(self.audio_filename):
                 os.remove(self.audio_filename)

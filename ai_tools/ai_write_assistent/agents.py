@@ -11,7 +11,7 @@ load_dotenv(".env")
 
 model_ = ChatOllama(
     model="llama3.1",
-    temperature=0.7,
+    temperature=0.5,
     num_predict=-1,
 )
 

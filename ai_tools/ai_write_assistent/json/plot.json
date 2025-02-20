@@ -1,63 +1,51 @@
 {
-  "title": "Heartbeats of Justice",
-  "genre": "Epic Fantasy",
-  "setting": "A world where magic is tied to the emotions and heartbeats of its inhabitants, in the midst of a brutal war that ravages the land.",
+  "title": "The Shadow Weaver",
+  "genre": "Fantasy/Adventure",
+  "setting": "A world where magic and technology coexist, with secret societies and Origoi adepts holding power.",
   "mainCharacters": [
     {
-      "name": "Thrain Blackwood",
-      "role": "Experienced leader with Based on Heartbeat magic abilities"
+      "name": "Kaidaira (Kae)",
+      "role": "Protagonist, a skilled Origoi adept"
     },
     {
-      "name": "Aethera Starweaver",
-      "role": "Adept Book of Scribes practitioner and reality weaver"
-    },
-    {
-      "name": "Kieran Nightwalker",
-      "role": "Skilled thief and assassin with Lacrimaturgy magic abilities"
+      "name": "Niamon Thorne",
+      "role": "Antagonist/Complex Character, a charismatic thief"
     }
   ],
-  "plotSummary": "In the midst of a devastating war, Thrain Blackwood seeks to unite the warring factions against a common enemy. Aethera Starweaver joins forces with him, using her Book of Scribes abilities to record and manipulate events. Meanwhile, Kieran Nightwalker operates in the shadows, taking on missions that could tip the balance of power.",
+  "plotSummary": "In a world where magic and technology coexist, Kae discovers she's the key to unlocking an ancient power that could change the balance of power in the world. She must navigate her way through secret societies, Origoi adepts, and treacherous alliances while facing her own demons.",
   "plotStructure": {
-    "exposition": "Introduce Thrain Blackwood, a seasoned leader fighting for justice amidst the chaos of war. Aethera Starweaver is introduced as an enigmatic figure with Book of Scribes abilities, while Kieran Nightwalker's mysterious past and Lacrimaturgy powers are hinted at.",
-    "risingAction": "Thrain and Aethera form an alliance to stop a powerful enemy threatening the stability of the war-torn lands. Kieran is drawn into their quest, using his skills to uncover hidden secrets and aid in their mission.",
-    "climax": "As they near their goal, Thrain and Aethera face opposition from unexpected quarters. Kieran's true loyalties are questioned, leading to a climactic showdown between the trio and those who seek to exploit them.",
-    "fallingAction": "The aftermath of the climax sees the consequences of their actions unfold. Alliances are tested, and new relationships are forged in the fire of conflict.",
-    "resolution": "In the end, Thrain emerges as a symbol of hope for a unified future, while Aethera's Book of Scribes abilities reshape the fabric of reality. Kieran's true loyalties are revealed, leading to a poignant conclusion that sets the stage for further adventures."
+    "exposition": "Kae lives a mundane life as an Origoi adept, unaware of her true potential. She's introduced to Niamon Thorne, who becomes embroiled in her life.",
+    "risingAction": "As Kae begins to tap into her powers, she attracts the attention of various factions vying for control. Niamon's thieving skills become entwined with Kae's journey as they face opposition from secret societies and Origoi adepts.",
+    "climax": "Kae discovers her true potential as a Shadow Weaver, capable of manipulating reality itself. She must confront the mastermind behind the manipulation of power in the world and make a choice that will determine the course of history.",
+    "fallingAction": "The consequences of Kae's actions unfold, leading to a shift in power dynamics. Niamon's motivations are revealed, adding complexity to his character arc.",
+    "resolution": "Kae emerges as a hero, but her journey has only just begun. The world is forever changed, and the stage is set for future conflicts."
   },
   "subplots": [
     {
-      "title": "The Rise of the Shadow Alliance",
-      "description": "A group of rogue factions secretly manipulate events from behind the scenes, working towards their own goals. Their true intentions are shrouded in mystery, adding an air of tension and intrigue to the story."
-    },
-    {
-      "title": "Aethera's Past",
-      "description": "As Aethera becomes more entwined with Thrain's quest, hints of her troubled past begin to surface. Her connection to the mysterious Book of Scribes is explored, revealing a complex and emotionally charged history."
+      "title": "The Lost Art of Origoi",
+      "description": "A subplot exploring the history and secrets surrounding Origoi adepts and their connection to magic and technology."
     }
   ],
   "characterArcs": [
     {
-      "character": "Thrain Blackwood",
-      "arc": "From a seasoned leader to a symbol of hope for a unified future, Thrain's journey explores his growth from a focus on justice to an understanding of the complexities and nuances of leadership."
+      "character": "Kaidaira (Kae)",
+      "arc": "From an uncertain, mundane life to a hero who embodies courage and self-discovery. Kae learns to control her powers and navigate the complexities of power politics."
     },
     {
-      "character": "Aethera Starweaver",
-      "arc": "Aethera's arc delves into her troubled past and the emotional depth of her Book of Scribes abilities. She evolves from an enigmatic figure to a powerful force for change, using her powers to reshape reality."
-    },
-    {
-      "character": "Kieran Nightwalker",
-      "arc": "Kieran's journey is one of self-discovery, as he confronts the true nature of his relationships and loyalties. His story explores the complexities of loyalty, trust, and redemption in a world where allegiances are constantly shifting."
+      "character": "Niamon Thorne",
+      "arc": "A complex character arc where Niamon's motivations are revealed, showcasing his capacity for growth and redemption as he confronts his own demons."
     }
   ],
   "themes": [
-    "The struggle for unity and cooperation in the face of adversity",
-    "The power and responsibility that come with great abilities",
-    "Redemption and self-discovery"
+    "[The struggle for power and control]",
+    "[Self-discovery and empowerment]",
+    "[Redemption and personal growth]"
   ],
   "keyPlotPoints": [
-    "Thrain and Aethera form an alliance to stop a powerful enemy",
-    "Kieran's true loyalties are questioned, leading to tension within the group",
-    "The trio discovers a hidden secret that could change the course of the war",
-    "A major betrayal is revealed, shaking the foundations of their relationships",
-    "Thrain emerges as a symbol of hope for a unified future"
+    "[Kae discovers her true potential as a Shadow Weaver]",
+    "[Niamon's motivations are revealed, adding complexity to his character arc]",
+    "[The mastermind behind the manipulation of power is revealed]",
+    "[Kae makes a choice that determines the course of history]",
+    "[Consequences unfold, leading to a shift in power dynamics]"
   ]
 }

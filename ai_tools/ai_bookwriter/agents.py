@@ -8,7 +8,7 @@ load_dotenv(".env")
 
 model_ = ChatOllama(
     # sam4096/qwen2tools:0.5b
-    model="llama3.1",
+    model="deepseek-r1",
     temperature=0.7,
     num_predict=-1,
 )
