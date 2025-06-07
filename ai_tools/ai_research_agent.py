@@ -1,80 +1,76 @@
+import json
+import logging
+from typing import Any, Dict, Optional, List, Iterator
+
 from dotenv import load_dotenv
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_community.tools import (
     DuckDuckGoSearchRun,
     ReadFileTool,
-    WikipediaQueryRun,
-    WolframAlphaQueryRun,
+    WikipediaQueryRun,  # Keep import for commenting out
+    WolframAlphaQueryRun,  # Keep import for commenting out
     WriteFileTool,
 )
-from langchain_community.utilities import WikipediaAPIWrapper
+from langchain_community.utilities import (
+    WikipediaAPIWrapper,  # Keep import for commenting out
+    WolframAlphaAPIWrapper,  # Keep import for commenting out
+)
+from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
-# Import the relevant tools from langchain_core.tools and langchain_community
-from langchain_core.tools import StructuredTool
+from crewai.tools import BaseTool
 from langchain_ollama import ChatOllama
-from pydantic import BaseModel, Field  # Pydantic for input validation
-
-# from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
+from pydantic import (
+    BaseModel,
+    Field,
+    model_validator,
+)
 
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 
-# Custom Structured Tool for text summarization
-class SummarizeTextInput(BaseModel):
-    """Input schema for SummarizeTextTool."""
-
-    text: str = Field(..., description="The text to summarize")
-
-
-class SummarizeTextTool(StructuredTool):
+class SummarizeTextTool(BaseTool):
     """Custom tool for summarizing text."""
 
-    name = "SummarizeTextTool"
-    description = "A tool for summarizing large blocks of text into shorter summaries."
-    args_schema = SummarizeTextInput
+    name: str = "SummarizeTextTool"
+    description: str = (
+        "A tool for summarizing large blocks of text into shorter summaries."
+    )
 
-    def _call(self, args: SummarizeTextInput) -> str:
+    def _run(self, text: str) -> str:
         """Perform the text summarization."""
-        text = args.text
-        # Basic summarization logic (this can be extended with more complex NLP models)
-        sentences = text.split(". ")
-        summary = ". ".join(sentences[:2]) + "..." if len(sentences) > 2 else text
-        return summary
+        try:
+            sentences = text.split(". ")
+            summary = ". ".join(sentences[:2]) + "..." if len(sentences) > 2 else text
+            return json.dumps({"summary": summary})
+        except Exception as e:
+            return json.dumps({"error": f"Error during text summarization: {str(e)}"})
 
 
 class AIResearchTools:
-    """AI Research Agent that uses various tools to answer questions or interact with the environment."""
+    """AI Research Agent that uses various tools to answer questions."""
 
     def __init__(self):
         """Initialize the AIResearchAgent with a set of tools."""
         self.chat_history = []
         self.agentExecutor = None
-
-        # Initialize tools for searching, file operations, and general research
-        self.wikipedia_tool = WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper())
-        self.wolfram_tool = (
-            WolframAlphaQueryRun()
-        )  # WolframAlpha query tool for math and science
-        self.duckduckgo_search_tool = (
-            DuckDuckGoSearchRun()
-        )  # DuckDuckGo search tool for privacy-oriented search
-        self.read_file_tool = ReadFileTool()  # Read file content
-        self.write_file_tool = WriteFileTool()  # Write content to files
-        self.summarize_text_tool = SummarizeTextTool()  # Custom text summarization tool
-
-        # Setup the agent chain
+        # self.wikipedia_tool = WikipediaQueryRun( # Temporarily disabled Wikipedia tool
+        #     api_wrapper=WikipediaAPIWrapper(top_k_results=1, doc_content_chars_max=100)
+        # )
+        # WolframAlpha requires an app_id. You need to set WOLFRAM_ALPHA_APPID environment variable.
+        # self.wolfram_tool = WolframAlphaQueryRun(api_wrapper=WolframAlphaAPIWrapper()) # Disabled Wolfram Alpha
+        self.duckduckgo_search_tool = DuckDuckGoSearchRun()
+        self.read_file_tool = ReadFileTool()
+        self.write_file_tool = WriteFileTool()
+        self.summarize_text_tool = SummarizeTextTool()
         self.create_agentchain()
 
     def create_agentchain(self):
         """Create an agent chain using multiple tools."""
-        model = ChatOllama(
-            model="llama3.1",
-            temperature=0.7,
-        )
-
+        model = ChatOllama(model="llama3.1", temperature=0.7)
         prompt = ChatPromptTemplate.from_messages(
             [
                 ("system", "You are a helpful AI researcher."),
@@ -83,43 +79,27 @@ class AIResearchTools:
                 MessagesPlaceholder(variable_name="agent_scratchpad"),
             ]
         )
-
-        # Combine all tools
         tools = [
-            self.wikipedia_tool,
-            self.wolfram_tool,
+            # self.wikipedia_tool, # Temporarily disabled Wikipedia tool
+            # self.wolfram_tool, # Disabled Wolfram Alpha
             self.duckduckgo_search_tool,
             self.read_file_tool,
             self.write_file_tool,
-            self.summarize_text_tool,  # Add custom summarization tool
+            self.summarize_text_tool,
         ]
-
-        # Create the agent with the tools
-        agent = create_tool_calling_agent(
-            llm=model,
-            tools=tools,
-            prompt=prompt,
-        )
-
+        agent = create_tool_calling_agent(llm=model, tools=tools, prompt=prompt)
         self.agentExecutor = AgentExecutor(agent=agent, tools=tools)
 
-    def process_chat(self, user_input):
+    def process_chat(self, user_input: str) -> dict:
         """Process a user input and get a response from the agent."""
-        response = self.agentExecutor.invoke(
-            {"input": user_input, "chat_history": self.chat_history}
-        )
-        self.chat_history.append(HumanMessage(content=user_input))
-        self.chat_history.append(AIMessage(content=response["output"]))
-        return response["output"]
-
-
-if __name__ == "__main__":
-    agent = AIResearchTools()
-
-    while True:
-        user_input = input("You: ")
-        if user_input.lower() == "exit":
-            break
-
-        response = agent.process_chat(user_input)
-        print(f"Assistant: {response}")
+        try:
+            if self.agentExecutor is None:
+                self.create_agentchain()
+            response = self.agentExecutor.invoke(
+                {"input": user_input, "chat_history": self.chat_history}
+            )
+            self.chat_history.append(HumanMessage(content=user_input))
+            self.chat_history.append(AIMessage(content=response["output"]))
+            return {"output": response["output"]}
+        except Exception as e:
+            return {"error": f"Error processing chat: {str(e)}"}

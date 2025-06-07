@@ -29,7 +29,12 @@ class TranscribeFastModel:
         sample_rate=44100,
     ):
         self.model_size = model_size
+        self.device = device
+        self.compute_type = compute_type
         self.sample_rate = sample_rate
+        # TODO: Investigate using smaller model_size (e.g., "tiny.en", "small.en") for faster inference
+        # if acceptable accuracy trade-off.
+        # TODO: Experiment with compute_type="int8" or "int8_float16" for further quantization and speed gains.
         self.model = WhisperModel(model_size, device=device, compute_type=compute_type)
         self.ctrl_pressed = False
         self._stop_event = asyncio.Event()
@@ -168,7 +173,10 @@ class TranscribeFastModel:
             transcription = await asyncio.to_thread(
                 self.transcribe, audio_filepath=self.save_temp_audio(recording)
             )
-            return transcription.lower()
+            if transcription:
+                return transcription.lower()
+            else:
+                return ""
         except Exception as e:
             self.logger.error(f"An error occurred in the run method: {e}")
             return ""
@@ -219,7 +227,7 @@ class TranscribeSlowModel:
     def on_press(self, key):
         """Handle key press event."""
         if key == keyboard.Key.ctrl_r:
-            self.ctrl_pressed = True
+            self.ctrl_pressed = False
         if key == keyboard.Key.space and self.ctrl_pressed:
             if not self.is_recording:
                 self.is_recording = True
@@ -232,11 +240,12 @@ class TranscribeSlowModel:
         if key == keyboard.Key.space and self.is_recording:
             self.is_recording = False
             self.logger.info("Stopped recording.")
-            return False
+            return None
 
     def record_audio(self):
         """Record audio while the hotkey is pressed."""
         self.logger.info("Waiting for hotkey press to start recording.")
+        recording = None
         try:
             recording = np.array([], dtype="float64").reshape(0, 2)
             frames_per_buffer = int(self.sample_rate * 0.1)
@@ -277,9 +286,19 @@ class TranscribeSlowModel:
         try:
             self.logger.info("Transcribing audio file: %s", audio_filepath)
             result = self.model.transcribe(audio_filepath)
-            query = result["text"].lower()
-            self.logger.info("Transcription completed: %s", query)
-            return query
+            if (
+                isinstance(result, dict)
+                and "text" in result
+                and isinstance(result["text"], str)
+            ):
+                query = result["text"].lower()
+                self.logger.info("Transcription completed: %s", query)
+                return query
+            else:
+                self.logger.warning(
+                    "Transcription result does not contain 'text' or is not a string."
+                )
+                return ""
         except Exception as e:
             self.logger.error("Error during transcription: %s", e)
 
@@ -287,10 +306,16 @@ class TranscribeSlowModel:
         """Main loop to handle recording and transcribing."""
         while True:
             recording = self.record_audio()
-            transcription = self.transcribe(
-                audio_filepath=self.save_temp_audio(recording)
-            )
-            self.logger.info("Transcription: %s", transcription)
+            if recording is not None and len(recording) > 0:
+                transcription = self.transcribe(
+                    audio_filepath=self.save_temp_audio(recording)
+                )
+                if transcription:
+                    self.logger.info("Transcription: %s", transcription)
+                else:
+                    self.logger.warning("Transcription failed.")
+            else:
+                self.logger.warning("No audio recorded, skipping transcription.")
             print(
                 "\nPress Ctrl_R + Space to start the recording again, or press Ctrl+C to stop it.\n"
             )

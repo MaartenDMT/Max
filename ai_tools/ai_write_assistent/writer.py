@@ -20,9 +20,7 @@ from ai_tools.ai_write_assistent.agents import (
 from ai_tools.ai_write_assistent.helpers import (
     clean_up,
     extract_and_save_json,
-    get_file_contents,
     process_json_in_chunks,
-    process_text_in_chunks,
 )
 
 
@@ -35,61 +33,28 @@ class WriterAssistant:
         log_setup = LoggerSetup()
         self.logger = log_setup.get_logger("WriterAssistant", "writer_assistent.log")
 
-    async def create_story(self):
-        """Function to create and generate the story."""
-        # clean_up()
-        self.logger.info("Cleaning up the previous story")
+    async def create_story(self, book_description: str, text_content: str) -> str:
+        """
+        Function to create and generate the story based on provided description and text content.
+        """
+        # clean_up() # Keep this if you want to clean up previous runs
+        self.logger.info("Starting story creation.")
 
         try:
-            user_input_description = input("Enter a description of the book: ")
+            if not book_description or not text_content:
+                self.logger.error("Book description or text content is missing.")
+                return "Error: Book description or text content is missing."
 
-            if not user_input_description:
-                description = "description.txt"
-                user_input_description = get_file_contents(
-                    f"ai_tools/ai_write_assistent/data/{description}"
-                )
-
-            book_description = user_input_description
-            text_source = "story.txt"
-            text = get_file_contents(f"ai_tools/ai_write_assistent/data/{text_source}")
-
-            if not text:
-                self.logger.error(f"Failed to read {text_source}.")
-                return
-
-            # 1. Get facts from the pre-story in chunks
-            fact_response = process_json_in_chunks(get_facts, text)
-
-            if not fact_response:
-                self.logger.error("Failed to process json chunks.")
-                return
-
+            facts_response = process_json_in_chunks(get_facts, text_content)
             facts = extract_and_save_json(
-                fact_response, "ai_tools/ai_write_assistent/json/facts.json"
+                facts_response, "ai_tools/ai_write_assistent/json/facts.json"
             )
             if not facts:
                 self.logger.error("Failed to extract facts.")
-                return
-
+                return "Error: Failed to extract facts."
             facts = str(facts)
 
-            # Use agent_selector to decide which agents to run
             agents_to_run = str(agent_selector(facts)).lower()
-
-            # Initialize variables to store outputs
-            characters, plot, world, magic_system, weapons_and_artifacts = (
-                None,
-                None,
-                None,
-                None,
-                None,
-            )
-            creatures_and_monsters, fauna_and_flora, connections, suggestions = (
-                None,
-                None,
-                None,
-                None,
-            )
 
             characters_response = character_generator(facts, book_description)
             characters = extract_and_save_json(
@@ -98,7 +63,7 @@ class WriterAssistant:
             )
             if not characters:
                 self.logger.error("Failed to generate characters.")
-                return
+                return "Error: Failed to generate characters."
             characters = str(characters)
 
             plot_response = plot_generator(facts, characters)
@@ -107,8 +72,17 @@ class WriterAssistant:
             )
             if not plot:
                 self.logger.error("Failed to generate plot.")
-                return
+                return "Error: Failed to generate plot."
             plot = str(plot)
+
+            # Initialize variables to store outputs
+            world, magic_system, weapons_and_artifacts = None, None, None
+            creatures_and_monsters, fauna_and_flora, connections, suggestions = (
+                None,
+                None,
+                None,
+                None,
+            )
 
             if "world building generator" in agents_to_run:
                 world_response = world_building_generator(facts, plot)
@@ -117,7 +91,7 @@ class WriterAssistant:
                 )
                 if not world:
                     self.logger.error("Failed to generate world-building elements.")
-                    return
+                    return "Error: Failed to generate world-building elements."
                 world = str(world)
 
             if "generate magic system" in agents_to_run:
@@ -127,7 +101,7 @@ class WriterAssistant:
                 )
                 if not magic_system:
                     self.logger.error("Failed to generate magic system.")
-                    return
+                    return "Error: Failed to generate magic system."
                 magic_system = str(magic_system)
 
             if "generate weapons and artifacts" in agents_to_run:
@@ -137,7 +111,7 @@ class WriterAssistant:
                 )
                 if not weapons_and_artifacts:
                     self.logger.error("Failed to generate weapons and artifacts.")
-                    return
+                    return "Error: Failed to generate weapons and artifacts."
                 weapons_and_artifacts = str(weapons_and_artifacts)
 
             if "generate creatures and monsters" in agents_to_run:
@@ -148,7 +122,7 @@ class WriterAssistant:
                 )
                 if not creatures_and_monsters:
                     self.logger.error("Failed to generate creatures and monsters.")
-                    return
+                    return "Error: Failed to generate creatures and monsters."
                 creatures_and_monsters = str(creatures_and_monsters)
 
             if "generate fauna and flora" in agents_to_run:
@@ -158,7 +132,7 @@ class WriterAssistant:
                 )
                 if not fauna_and_flora:
                     self.logger.error("Failed to generate fauna and flora.")
-                    return
+                    return "Error: Failed to generate fauna and flora."
                 fauna_and_flora = str(fauna_and_flora)
 
             if "make connections between plots and characters" in agents_to_run:
@@ -171,7 +145,7 @@ class WriterAssistant:
                 )
                 if not connections:
                     self.logger.error("Failed to generate plot-character connections.")
-                    return
+                    return "Error: Failed to generate plot-character connections."
                 connections = str(connections)
 
             if "suggestions and thoughts generator" in agents_to_run:
@@ -184,38 +158,25 @@ class WriterAssistant:
                 )
                 if not suggestions:
                     self.logger.error("Failed to generate suggestions and thoughts.")
-                    return
+                    return "Error: Failed to generate suggestions and thoughts."
                 suggestions = str(suggestions)
 
             self.logger.info("Story creation completed successfully.")
+            return "Story creation completed successfully. Generated JSON files in ai_tools/ai_write_assistent/json/."
 
         except Exception as e:
             self.logger.exception(f"An error occurred during story creation: {e}")
-
-    async def handle_user_commands(self):
-        """Assistant function to handle user commands."""
-        print("Welcome to the AI Book Writer!")
-
-        while True:
-            print("\nPlease choose an option:")
-            print("story - to create a story")
-            print("exit - to exit")
-
-            choice = input("Enter your choice: ").strip()
-
-            if choice.lower() == "story":
-                self.logger.info("User selected to create a story.")
-                await self.create_story()
-            elif choice.lower() == "exit":
-                print("Goodbye!")
-                self.logger.info("Assistant session ended by user.")
-                break
-            else:
-                self.logger.info("Invalid choice. Please try again.")
-                print("Invalid choice. Please enter 'story' or 'exit'.")
+            return f"Error during story creation: {str(e)}"
 
 
-# Run the assistant when the script is executed
+# Example usage (for testing purposes, non-interactive)
 if __name__ == "__main__":
-    agent = WriterAssistant()
-    asyncio.run(agent.handle_user_commands())
+
+    async def test_writer_assistant():
+        writer_assistant = WriterAssistant()
+        description = "A thrilling detective story set in a futuristic city."
+        text = "The neon lights flickered, casting long shadows over the rain-slicked streets. Detective Kaito adjusted his trench coat, the collar pulled high against the biting wind. Another case, another mystery in Neo-Kyoto."
+        result = await writer_assistant.create_story(description, text)
+        print(f"Story creation result: {result}")
+
+    asyncio.run(test_writer_assistant())

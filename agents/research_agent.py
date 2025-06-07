@@ -1,6 +1,6 @@
 import asyncio
 
-from ai_tools.ai_research_agent import AIResearchTools, SummarizeTextInput
+from ai_tools.ai_research_agent import AIResearchTools  # Removed SummarizeTextInput
 
 
 class AIResearchAgent:
@@ -8,34 +8,43 @@ class AIResearchAgent:
         """Initialize the agent with AIResearchTools."""
         self.research_tools = AIResearchTools()  # Integrate AIResearchTools here
 
-    async def handle_research(self, query):
+    async def handle_research(self, query: str) -> dict:
         """Handle research tasks using AIResearchTools."""
-        response = self.research_tools.process_chat(query)
-        return response
+        try:
+            response = self.research_tools.process_chat(query)
+            return {"status": "success", "result": response}
+        except Exception as e:
+            return {"status": "error", "message": f"Error during research: {str(e)}"}
 
-    async def handle_text_summarization(self, text):
+    async def handle_text_summarization(self, text: str) -> dict:
         """Handle text summarization using the custom summarization tool."""
-        summarize_tool = self.research_tools.summarize_text_tool
-        result = summarize_tool._call(SummarizeTextInput(text=text))
-        return result
+        try:
+            summarize_tool = self.research_tools.summarize_text_tool
+            result = summarize_tool._run(text=text)  # Call _run directly
+            return {"status": "success", "summary": result}
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error during text summarization: {str(e)}",
+            }
 
     # Add more research-related methods as needed
 
 
-# Example usage
-async def run_research_agent():
-    agent = AIResearchAgent()
+# Example usage (removed interactive parts for API readiness)
+# async def run_research_agent():
+#     agent = AIResearchAgent()
 
-    # Handle research query
-    query = "Tell me about the history of AI"
-    research_result = await agent.handle_research(query)
-    print(f"Research result: {research_result}")
+#     # Handle research query
+#     # query = "Tell me about the history of AI"
+#     # research_result = await agent.handle_research(query)
+#     # print(f"Research result: {research_result}")
 
-    # Handle text summarization
-    text = "Artificial intelligence (AI) is intelligence demonstrated by machines..."
-    summarization_result = await agent.handle_text_summarization(text)
-    print(f"Summarized text: {summarization_result}")
+#     # Handle text summarization
+#     # text = "Artificial intelligence (AI) is intelligence demonstrated by machines..."
+#     # summarization_result = await agent.handle_text_summarization(text)
+#     # print(f"Summarized text: {summarization_result}")
 
 
-if __name__ == "__main__":
-    asyncio.run(run_research_agent())
+# if __name__ == "__main__":
+#     asyncio.run(run_research_agent())

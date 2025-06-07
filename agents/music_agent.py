@@ -19,13 +19,24 @@ class MusicCreationAgent:
 
         if prompt and bpm:
             # Use the MusicLoopGenerator tool to generate the loop
-            print(f"Generating a {bpm} BPM {prompt} loop...")
+            # Ensure duration is an integer, default to 30 if None
+            actual_duration = duration if duration is not None else 30
             loop_file = self.loop_generator.generate_loop(
-                prompt=prompt, bpm=bpm, duration=duration
+                prompt=prompt, bpm=bpm, duration=actual_duration
             )
-            return f"Music loop generated: {loop_file}"
+            if loop_file:
+                return {
+                    "status": "success",
+                    "message": f"Music loop generated: {loop_file}",
+                    "file_path": loop_file,
+                }
+            else:
+                return {"status": "error", "message": "Failed to generate music loop."}
         else:
-            return "Sorry, I couldn't understand your request. Please provide a valid genre and BPM."
+            return {
+                "status": "error",
+                "message": "Sorry, I couldn't understand your request. Please provide a valid genre and BPM.",
+            }
 
     def parse_user_input(self, user_input):
         """
@@ -49,13 +60,13 @@ class MusicCreationAgent:
             return None, None, None
 
 
-# Example usage
-if __name__ == "__main__":
-    agent = MusicCreationAgent()
+# Example usage (removed interactive parts for API readiness)
+# if __name__ == "__main__":
+#     agent = MusicCreationAgent()
 
-    # Simulated user input
-    user_input = "Generate a 160 BPM hip hop beat for 40 seconds"
+#     # Simulated user input
+#     user_input = "Generate a 160 BPM hip hop beat for 40 seconds"
 
-    # Process user request
-    result = agent.handle_user_request(user_input)
-    print(result)
+#     # Process user request
+#     result = agent.handle_user_request(user_input)
+#     print(result)

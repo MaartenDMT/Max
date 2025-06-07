@@ -34,30 +34,45 @@ class VideoProcessingAgent:
         else:
             return None
 
-    def process_user_request(self, video_url):
+    def process_user_request(self, video_url: str) -> dict:
         """
         Main method for processing user requests.
         Takes in a video URL (YouTube or Rumble), checks if it is valid, and performs summarization.
+        Returns a dictionary with full_text, summary, and status.
         """
         # Step 1: Validate the input URL
         summarizer = self.get_summarizer(video_url)
         if summarizer is None:
-            return "Invalid URL. Please provide a valid YouTube or Rumble video link."
+            return {
+                "status": "error",
+                "message": "Invalid URL. Please provide a valid YouTube or Rumble video link.",
+            }
 
         # Step 2: Delegate summarization task to the appropriate tool (YouTube or Rumble)
         try:
             platform = "YouTube" if self.is_youtube_url(video_url) else "Rumble"
-            print(f"Processing {platform} video: {video_url}")
+            # print(f"Processing {platform} video: {video_url}") # Removed print statement
             full_text, summary = summarizer.summarize(video_url)
-            return full_text, summary
+
+            if full_text is not None and summary is not None:
+                return {"status": "success", "full_text": full_text, "summary": summary}
+            else:
+                return {
+                    "status": "error",
+                    "message": summary,
+                }  # summary will contain error message if full_text is None
 
         except Exception as e:
-            return None, f"An error occurred while processing the video: {str(e)}"
+            return {
+                "status": "error",
+                "message": f"An error occurred while processing the video: {str(e)}",
+            }
 
-    def handle_user_input(self, user_input):
+    def handle_user_input(self, user_input: str) -> dict:
         """
         This method receives user input and determines if a YouTube or Rumble URL was given.
         If so, it calls process_user_request to summarize the video.
+        Returns a dictionary with the result.
         """
         if (
             "youtube.com" in user_input
@@ -66,19 +81,19 @@ class VideoProcessingAgent:
         ):
             return self.process_user_request(user_input)
         else:
-            return (
-                None,
-                "I can only summarize YouTube or Rumble videos at the moment. Please provide a valid URL.",
-            )
+            return {
+                "status": "error",
+                "message": "I can only summarize YouTube or Rumble videos at the moment. Please provide a valid URL.",
+            }
 
 
-# Example usage
-if __name__ == "__main__":
-    agent = VideoProcessingAgent(transcribe=True)
+# Example usage (removed interactive parts for API readiness)
+# if __name__ == "__main__":
+#     agent = VideoProcessingAgent(transcribe=True)
 
-    # Simulating user input for Rumble
-    user_input = "https://rumble.com/v9abcx-sample-video.html"
+#     # Simulating user input for Rumble
+#     user_input = "https://rumble.com/v9abcx-sample-video.html"
 
-    # Process user request
-    full_text, summary = agent.handle_user_input(user_input)
-    print(summary)
+#     # Process user request
+#     full_text, summary = agent.handle_user_input(user_input)
+#     print(summary)

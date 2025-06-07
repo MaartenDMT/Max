@@ -1,22 +1,28 @@
 import asyncio
+import json
+from typing import Optional
 
 from agents.chatbot_agent import ChatbotAgent
 from agents.music_agent import MusicCreationAgent
+from agents.orchestrator_agent import OrchestratorAgent
 from agents.research_agent import AIResearchAgent
 from agents.video_agent import VideoProcessingAgent
-from agents.webpage_agent import WebsiteProcessingAgent
-from agents.writer_agent import AIWriterAgent
-from ai_tools.speech.app_speech import SpeechApp
+
+# Removed: from agents.webpage_agent import WebsiteProcessingAgent
+# Removed: from agents.writer_agent import AIWriterAgent
 from utils.loggers import LoggerSetup
-from utils.call_commands import get_ai_commands
+
+# Import the necessary BaseTools directly
+from ai_tools.crew_tools import WebsiteSummarizerTool, WebPageResearcherTool
+from ai_tools.agent_tools import StoryWriterTool, BookWriterTool
 
 
 class AIAssistant:
     def __init__(self, tts_model, transcribe, speak, listen):
         self.transcribe = transcribe
         self.tts_model = tts_model
-        self.speech_app = SpeechApp(tts_model)
 
+        # These will be placeholders for API context
         self._speak = speak
         self._listen = listen
 
@@ -27,6 +33,9 @@ class AIAssistant:
             "youtube_summaries": [],
         }
 
+        # Initialize OrchestratorAgent
+        self.orchestrator_agent = OrchestratorAgent()
+
         # Setup logger
         log_setup = LoggerSetup()
         self.logger = log_setup.get_logger("AIAssistant", "ai_assistant.log")
@@ -34,55 +43,406 @@ class AIAssistant:
         # llm mode
         self.llm_mode = None
 
-        # Setup AI-related commands
-        self.commands = get_ai_commands(self)
-
         # Log initialization
         self.logger.info("AI Assistant initialized.")
 
-    async def handle_command(self, query):
-        """Handle AI commands based on user query."""
-        command_key = query.strip().lower()
+    # Placeholder for speak in API context
+    async def _speak_api(self, message: str):
+        self.logger.info(f"API Speak: {message}")
+        return {"message": message}
 
-        # Now execute the command after loading the agent dynamically
-        if command_key in self.commands:
-            # Dynamically load the agent before executing the command
-            await self._load_agent_for_command(command_key)
+    # Placeholder for listen in API context
+    async def _listen_api(self):
+        self.logger.info("API Listen: No direct listening in API context.")
+        return ""
 
-            command_func = self.commands[command_key]
-            self.logger.info(f"Executing AI command: {command_key}")
-            await command_func(query)
-        else:
-            self.logger.warning(f"Unknown AI command: {command_key}")
-            await self._speak(f"Sorry, I don't know how to handle '{query}'.")
-
-    async def _load_agent_for_command(self, command_key):
-        """Load the appropriate agent based on the command key."""
-        if "youtube" in command_key:
-            self._load_agent("youtube")
-        elif "website" in command_key:
-            self._load_agent("website")
-        elif "music loop" in command_key:
-            self._load_agent("music")
-        elif "research" in command_key:
-            self._load_agent("research")
-        elif (
-            "critique" in command_key
-            or "reflect" in command_key
-            or "chatbot" in command_key
-        ):
+    def set_llm_mode(self, mode=None) -> dict:
+        """Set the LLM mode in ChatbotAgent (e.g., critique, reflecting)."""
+        self.llm_mode = mode
+        if mode in ["critique", "reflecting"]:
             self._load_agent("chatbot")
-        elif "write" in command_key or "story" in command_key or "book" in command_key:
-            self._load_agent("writer assistent")
+            self.logger.info(f"{mode.capitalize()} mode enabled via ChatbotAgent.")
+            return {
+                "status": "success",
+                "message": f"{mode.capitalize()} mode enabled.",
+            }
+        else:
+            self.llm_mode = None
+            self.logger.info("Invalid mode selected, no LLM mode enabled.")
+            return {"status": "error", "message": "Invalid mode selected."}
+
+    # API-compatible methods for each functionality
+
+    async def _handle_chatbot_api(
+        self, mode: str, summary: str, full_text: str
+    ) -> dict:
+        """Handle chatbot-related tasks for API."""
+        try:
+            self._load_agent("chatbot")
+            result = await self.chatbot_agent.process_with_current_mode(
+                mode, summary, full_text
+            )
+            return {"result": result.get("result"), "error": result.get("error")}
+        except Exception as e:
+            self.logger.error(f"Error during chatbot task: {str(e)}")
+            return {"error": f"Error during chatbot task: {str(e)}"}
+
+    async def _summarize_youtube_api(self, video_url: str) -> dict:
+        """Handle YouTube summarization task asynchronously for API."""
+        try:
+            if not video_url:
+                self.logger.warning("No YouTube URL provided.")
+                return {"status": "error", "message": "No valid YouTube URL provided."}
+
+            self.logger.info(f"Received YouTube URL: {video_url}")
+            self._load_agent("youtube")
+
+            result = await asyncio.to_thread(
+                self.youtube_agent.handle_user_input, video_url
+            )
+
+            # Ensure result is a dictionary before proceeding
+            if not isinstance(result, dict):
+                self.logger.error(
+                    f"YouTube summarization returned non-dict result: {result}"
+                )
+                return {
+                    "status": "error",
+                    "message": "Unexpected summarization result format.",
+                }
+
+            if result.get("status") == "success":
+                full_text = str(result.get("full_text", ""))  # Ensure string
+                summary = str(result.get("summary", ""))  # Ensure string
+
+                if self.llm_mode is not None:
+                    self._load_agent("chatbot")
+                    critique_result = (
+                        await self.chatbot_agent.process_with_current_mode(
+                            self.llm_mode, summary, full_text
+                        )
+                    )
+                    summary_with_critique = {
+                        "summary": summary,
+                        "critique": critique_result.get("result"),
+                        "critique_error": critique_result.get("error"),
+                    }
+                    self.logger.info(f"YouTube video summarized with critique")
+                    return {
+                        "status": "success",
+                        "summary": json.dumps(summary_with_critique),
+                        "full_text": full_text,
+                    }
+                else:
+                    self.logger.info(f"YouTube video summarized")
+                    return {
+                        "status": "success",
+                        "summary": summary,
+                        "full_text": full_text,
+                    }
+            else:
+                self.logger.error(
+                    f"YouTube summarization failed: {result.get('message')}"
+                )
+                return {
+                    "status": "error",
+                    "message": result.get("message", "Failed to summarize video."),
+                }
+        except Exception as e:
+            self.logger.error(f"Error during YouTube summarization: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"An error occurred during summarization: {str(e)}",
+            }
+
+    async def _learn_site_api(self, url: str, question: str) -> dict:
+        """Handle website summarization task for API."""
+        try:
+            if not url:
+                return {"status": "error", "message": "No website URL provided."}
+            if not question:
+                return {"status": "error", "message": "No question provided."}
+
+            self.logger.info(f"Received website URL: {url} with question: {question}")
+            self.session_context["websites_visited"].append(url)
+            # Directly use WebsiteSummarizerTool
+            summarizer_tool = WebsiteSummarizerTool()
+            result = summarizer_tool._run(
+                url=url, question=question
+            )  # Use _run for synchronous tool
+
+            # Ensure result is a dictionary before proceeding
+            if not isinstance(result, dict):
+                try:  # Attempt to parse if it's a JSON string
+                    result = json.loads(result)
+                except json.JSONDecodeError:
+                    self.logger.error(
+                        f"Website summarization returned non-dict/non-json result: {result}"
+                    )
+                    return {
+                        "status": "error",
+                        "message": "Unexpected summarization result format.",
+                    }
+
+            if result.get("summary"):  # Check for 'summary' key in the result
+                self.logger.info(f"Website summarized: {result.get('summary')}")
+                return {
+                    "status": "success",
+                    "summary": result.get("summary"),
+                    "keywords": result.get("keywords"),
+                }
+            else:
+                self.logger.warning("No summary generated for the website.")
+                return {
+                    "status": "error",
+                    "message": result.get(
+                        "error", "Sorry, I couldn't generate a summary."
+                    ),
+                }
+        except Exception as e:
+            self.logger.error(f"Error during site summarization: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"An error occurred while processing the website: {str(e)}",
+            }
+
+    async def _research_site_api(self, category: str, question: str) -> dict:
+        """Handle website research task for API."""
+        try:
+            if not category:
+                return {"status": "error", "message": "No research category provided."}
+            if not question:
+                return {"status": "error", "message": "No research question provided."}
+
+            self.logger.info(
+                f"Received research category: {category} with question: {question}"
+            )
+            # Directly use WebPageResearcherTool
+            researcher_tool = WebPageResearcherTool()
+            result = researcher_tool._run(
+                category=category, question=question
+            )  # Use _run for synchronous tool
+
+            # Ensure result is a dictionary before proceeding
+            if not isinstance(result, dict):
+                try:  # Attempt to parse if it's a JSON string
+                    result = json.loads(result)
+                except json.JSONDecodeError:
+                    self.logger.error(
+                        f"Website research returned non-dict/non-json result: {result}"
+                    )
+                    return {
+                        "status": "error",
+                        "message": "Unexpected research result format.",
+                    }
+
+            if result.get("research_result"):  # Check for 'research_result' key
+                self.logger.info(f"Research result: {result.get('research_result')}")
+                return {
+                    "status": "success",
+                    "research_result": result.get("research_result"),
+                }
+            else:
+                self.logger.warning("No research result generated.")
+                return {
+                    "status": "error",
+                    "message": result.get(
+                        "error", "Sorry, I couldn't perform the research."
+                    ),
+                }
+        except Exception as e:
+            self.logger.error(f"Error during site research: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"An error occurred while processing the research: {str(e)}",
+            }
+
+    async def _make_loop_api(
+        self, prompt: str, bpm: int, duration: Optional[int] = 30
+    ) -> dict:
+        """Handle music loop generation task for API."""
+        try:
+            if not prompt or not bpm:
+                return {
+                    "status": "error",
+                    "message": "Invalid prompt or BPM for music loop.",
+                }
+
+            self.logger.info(f"Music loop request with prompt: {prompt} and BPM: {bpm}")
+            self._load_agent("music")
+
+            # Ensure duration is an int, default to 30 if None (as per schema default)
+            actual_duration = duration if duration is not None else 30
+            user_input_for_music_agent = (
+                f"Generate a {bpm} BPM {prompt} loop for {actual_duration} seconds"
+            )
+            output = await asyncio.to_thread(
+                self.music_agent.handle_user_request, user_input_for_music_agent
+            )
+
+            if output.get("status") == "success":
+                self.logger.info(f"Music loop generated: {output.get('file_path')}")
+                return {
+                    "status": "success",
+                    "message": output.get("message"),
+                    "file_path": output.get("file_path"),
+                }
+            else:
+                self.logger.warning(
+                    f"Music loop generation failed: {output.get('message')}"
+                )
+                return {
+                    "status": "error",
+                    "message": output.get("message", "Failed to generate music loop."),
+                }
+        except Exception as e:
+            self.logger.error(f"Error during loop making: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"An error occurred during loop making: {str(e)}",
+            }
+
+    async def _handle_research_api(self, query: str) -> dict:
+        """Handle research-related tasks for API."""
+        try:
+            if not query:
+                return {"status": "error", "message": "No research query provided."}
+
+            self.logger.info(f"Research query: {query}")
+            self._load_agent("research")
+
+            research_result = await self.research_agent.handle_research(query)
+
+            if research_result.get("status") == "success":
+                self.logger.info(f"Research result: {research_result.get('result')}")
+                return {"status": "success", "result": research_result.get("result")}
+            else:
+                self.logger.error(f"Research failed: {research_result.get('message')}")
+                return {
+                    "status": "error",
+                    "message": research_result.get(
+                        "message", "Failed to perform research."
+                    ),
+                }
+        except Exception as e:
+            self.logger.error(f"Error during research task: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"An error occurred during research: {str(e)}",
+            }
+
+    async def _handle_summarization_api(self, text_to_summarize: str) -> dict:
+        """Handle text summarization for API."""
+        try:
+            if not text_to_summarize:
+                return {
+                    "status": "error",
+                    "message": "No text provided for summarization.",
+                }
+
+            self.logger.info("Text summarization request received.")
+            self._load_agent("research")
+
+            summary_result = await self.research_agent.handle_text_summarization(
+                text_to_summarize
+            )
+
+            if summary_result.get("status") == "success":
+                self.logger.info(f"Summarized text: {summary_result.get('summary')}")
+                return {"status": "success", "summary": summary_result.get("summary")}
+            else:
+                self.logger.error(
+                    f"Text summarization failed: {summary_result.get('message')}"
+                )
+                return {
+                    "status": "error",
+                    "message": summary_result.get(
+                        "message", "Failed to summarize text."
+                    ),
+                }
+        except Exception as e:
+            self.logger.error(f"Error during text summarization: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"An error occurred during summarization: {str(e)}",
+            }
+
+    async def _handle_writer_task_api(
+        self,
+        task_type: str,
+        book_description: Optional[str] = None,
+        num_chapters: Optional[int] = None,
+        text_content: Optional[str] = None,
+    ) -> dict:
+        """Handle writing-related tasks for API."""
+        try:
+            # Directly use StoryWriterTool or BookWriterTool
+            if task_type == "story":
+                if not book_description or not text_content:
+                    return {
+                        "status": "error",
+                        "message": "For 'story' task, 'book_description' and 'text_content' are required.",
+                    }
+                writer_tool = StoryWriterTool()
+                story_output = writer_tool._run(
+                    book_description=book_description, text_content=text_content
+                )
+                # The _run method of StoryWriterTool returns a JSON string, so parse it
+                try:
+                    story_output_dict = json.loads(story_output)
+                    return {
+                        "status": "success",
+                        "output": story_output_dict.get("story_output"),
+                    }
+                except json.JSONDecodeError:
+                    return {
+                        "status": "error",
+                        "message": "Failed to parse story output.",
+                    }
+            elif task_type == "book":
+                if not book_description or not num_chapters or not text_content:
+                    return {
+                        "status": "error",
+                        "message": "For 'book' task, 'book_description', 'num_chapters', and 'text_content' are required.",
+                    }
+                book_tool = BookWriterTool()
+                book_output = book_tool._run(
+                    book_description=book_description,
+                    num_chapters=num_chapters,
+                    text_content=text_content,
+                )
+                # The _run method of BookWriterTool returns a JSON string, so parse it
+                try:
+                    book_output_dict = json.loads(book_output)
+                    return {
+                        "status": "success",
+                        "output": book_output_dict.get("book_output"),
+                    }
+                except json.JSONDecodeError:
+                    return {
+                        "status": "error",
+                        "message": "Failed to parse book output.",
+                    }
+            else:
+                return {
+                    "status": "error",
+                    "message": "Invalid writer task type. Please specify 'story' or 'book'.",
+                }
+        except Exception as e:
+            self.logger.error(f"Error during writing task: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"An error occurred during writing task: {str(e)}",
+            }
 
     def _load_agent(self, agent_type):
         """Load the specific agent when it's first needed."""
         if agent_type == "youtube" and not hasattr(self, "youtube_agent"):
             self.youtube_agent = VideoProcessingAgent(self.transcribe)
             self.logger.info("YouTube agent loaded.")
-        elif agent_type == "website" and not hasattr(self, "web_agent"):
-            self.web_agent = WebsiteProcessingAgent()
-            self.logger.info("Website agent loaded.")
+        # Removed: elif agent_type == "website" and not hasattr(self, "web_agent"):
+        # Removed:     self.web_agent = WebsiteProcessingAgent()
+        # Removed:     self.logger.info("Website agent loaded.")
         elif agent_type == "music" and not hasattr(self, "music_agent"):
             self.music_agent = MusicCreationAgent()
             self.logger.info("Music agent loaded.")
@@ -92,226 +452,6 @@ class AIAssistant:
         elif agent_type == "chatbot" and not hasattr(self, "chatbot_agent"):
             self.chatbot_agent = ChatbotAgent()  # Load ChatbotAgent
             self.logger.info("ChatbotAgent loaded.")
-        elif agent_type == "writer assistent" and not hasattr(self, "writer_agent"):
-            self.writer_agent = AIWriterAgent(self._speak)  # Load AIWriterAssistant
-            self.logger.info("AIWriterAssistant loaded.")
-
-    def set_llm_mode(self, mode=None):
-        """Set the LLM mode in ChatbotAgent (e.g., critique, reflecting)."""
-        self.llm_mode = mode
-        if mode in ["critique", "reflecting"]:
-            # Ensure chatbot_agent is loaded
-            self._load_agent("chatbot")
-
-            # Set ChatbotAgent to the selected mode
-            self.chatbot_agent.current_mode = mode
-            self.logger.info(f"{mode.capitalize()} mode enabled via ChatbotAgent.")
-            return f"{mode.capitalize()} mode enabled."
-        else:
-            self.llm_mode = None
-            self.logger.info("Invalid mode selected, no LLM mode enabled.")
-            return "Invalid mode selected."
-
-    async def _handle_chatbot(self, query):
-        """Handle chatbot-related tasks."""
-        try:
-            # Step 1: Ask for the chatbot mode (reflecting or critique)
-            mode_response = await self.chatbot_agent.handle_mode_selection()
-            await self._speak(mode_response)
-
-            # Step 2: Handle the chatbot query based on the selected mode
-            query_response = await self.chatbot_agent.handle_chatbot_query()
-            await self._speak(query_response)
-        except Exception as e:
-            self.logger.error(f"Error during chatbot task: {str(e)}")
-
-    async def _summarize_youtube(self, query):
-        """Handle YouTube summarization task asynchronously."""
-        try:
-            await self._speak("Please provide the YouTube video URL")
-            video_url = await asyncio.to_thread(input, "YouTube video URL: ")
-
-            if video_url:
-                self.logger.info(f"Received YouTube URL: {video_url}")
-
-                # Check if the URL is valid and summarize the video using VideoProcessingAgent
-                full_text, summary = await asyncio.to_thread(
-                    self.youtube_agent.handle_user_input, video_url
-                )
-
-                if not full_text or not summary:
-                    await self._speak(f"An error occurred: {summary}")
-                    return
-
-                if self.llm_mode is not None:
-                    # Ensure chatbot_agent is loaded before handling LLM tasks
-                    self._load_agent("chatbot")
-
-                    # Convert summary to string if it's not already
-                    if isinstance(summary, dict):
-                        summary = str(summary)
-
-                    # Let ChatbotAgent handle the LLM processing based on mode (e.g., critique, reflecting)
-                    critique_result = (
-                        await self.chatbot_agent.process_with_current_mode(
-                            summary, full_text
-                        )
-                    )
-
-                    await self._speak("Here is the summary and critique:")
-                    print(f"Summary: {summary}")
-                    print(f"Critique: {critique_result}")
-                    self.logger.info(f"YouTube video summarized")
-            else:
-                self.logger.warning("No YouTube URL provided.")
-                await self._speak("No valid YouTube URL provided.")
-        except Exception as e:
-            self.logger.error(f"Error during YouTube summarization: {str(e)}")
-            await self._speak(f"An error occurred during summarization: {str(e)}")
-
-    async def _learn_site(self, query):
-        """Handle website summarization task using the Web agent."""
-        try:
-            # Step 1: Ask for the URL
-            await self._speak("Please provide the website URL.")
-            website_url = await asyncio.to_thread(input, "Website URL: ")
-
-            if website_url:
-                self.logger.info(f"Received website URL: {website_url}")
-                self.session_context["websites_visited"].append(website_url)
-
-                # Step 2: Ask for the question related to the website
-                await self._speak("What question do you want to ask about the website?")
-                question = await asyncio.to_thread(input, "Question: ")
-
-                if question:
-                    self.logger.info(f"Received question for website: {question}")
-
-                    # Use WebPageSummarizer to summarize the website with the provided question
-                    result = await asyncio.to_thread(
-                        self.web_agent.summarize_website, website_url, question
-                    )
-
-                    # Step 3: Provide the summary and handle any errors
-                    if result and "summary" in result:
-                        await self._speak("Here is the summary:")
-                        print(result["summary"])
-                        await self._speak("Summary provided.")
-                        self.logger.info(f"Website summarized: {result['summary']}")
-                    else:
-                        await self._speak("Sorry, I couldn't generate a summary.")
-                        self.logger.warning("No summary generated for the website.")
-                else:
-                    await self._speak("No question provided. Please try again.")
-                    self.logger.warning("No question provided for the website.")
-            else:
-                await self._speak("No website URL provided. Please try again.")
-                self.logger.warning("No website URL provided.")
-        except Exception as e:
-            self.logger.error(f"Error during site summarization: {str(e)}")
-            await self._speak(
-                f"An error occurred while processing the website: {str(e)}"
-            )
-
-    async def _research_site(self, query):
-        """Handle website research task using the Web agent."""
-        try:
-            # Step 1: Ask for the research category
-            await self._speak("Please provide the research category.")
-            category = asyncio.to_thread(input, "Research category: ")
-
-            if category:
-                self.logger.info(f"Received research category: {category}")
-                await self._speak(f"Setting up research for category: {category}")
-
-                # Use the WebPageResearchAgent to set up research
-                result = await asyncio.to_thread(
-                    self.web_agent.handle_research_category
-                )
-
-                if result:
-                    await self._speak(f"Research setup complete: {result}")
-                    self.logger.info(f"Research setup complete: {result}")
-                else:
-                    await self._speak("Sorry, I couldn't set up the research.")
-                    self.logger.warning("Research setup failed.")
-            else:
-                await self._speak("No research category provided.")
-                self.logger.warning("No research category provided.")
-        except Exception as e:
-            self.logger.error(f"Error during site research: {str(e)}")
-            await self._speak(
-                f"An error occurred while processing the research: {str(e)}"
-            )
-
-    async def _make_loop(self, query):
-        """Handle music loop generation task using the Music agent."""
-        try:
-            await self._speak("Making a music loop...")
-            prompt = await asyncio.to_thread(
-                input, "What kind of music loop do you want: "
-            )
-            bpm = await asyncio.to_thread(input, "What BPM do you want: ")
-
-            if prompt and bpm:
-                self.logger.info(
-                    f"Music loop request with prompt: {prompt} and BPM: {bpm}"
-                )
-                output = await asyncio.to_thread(
-                    self.music_agent.create_music_loop, prompt, int(bpm)
-                )
-                if output:
-                    await self._speak(f"Music loop generated: {output}")
-                    self.logger.info(f"Music loop generated: {output}")
-            else:
-                self.logger.warning("Invalid prompt or BPM for music loop.")
-        except Exception as e:
-            self.logger.error(f"Error during loop making: {str(e)}")
-
-    async def _handle_research(self, query):
-        """Handle research-related tasks using the AIResearchAgent."""
-        try:
-            research_result = await self.research_agent.handle_research(query)
-            await self._speak(f"Research result: {research_result}")
-        except Exception as e:
-            self.logger.error(f"Error during research task: {str(e)}")
-            await self._speak(f"An error occurred during research: {str(e)}")
-
-    async def _handle_summarization(self, query):
-        """Handle text summarization using the AIResearchAgent."""
-        try:
-            # Ask the user for the text they want to summarize
-            await self._speak("Please provide the text you want to summarize.")
-            text_to_summarize = await asyncio.to_thread(input, "Text to summarize: ")
-
-            if text_to_summarize:
-                summary_result = await self.research_agent.handle_text_summarization(
-                    text_to_summarize
-                )
-                await self._speak(f"Summarized text: {summary_result}")
-            else:
-                self.logger.warning("No text provided for summarization.")
-                await self._speak("No text provided. Please try again.")
-        except Exception as e:
-            self.logger.error(f"Error during text summarization: {str(e)}")
-            await self._speak(f"An error occurred during summarization: {str(e)}")
-
-    async def _handle_writer_task(self, query):
-        """Handle writing-related tasks using AIWriterAssistant."""
-        try:
-
-            # Delegate tasks to the WriterAssistant class
-            if "create" in query or "story" in query or "book" in query:
-                await self.writer_agent.handle_mode_selection()  # Call the writer agent to create a story
-            else:
-                await self._speak(
-                    "I can assist with writing tasks. Please specify if you want to create a story or book."
-                )
-        except Exception as e:
-            self.logger.error(f"Error during writing task: {str(e)}")
-
-
-# Example usage
-if __name__ == "__main__":
-    assistant = AIAssistant(tts_model=None, transcribe=None, speak=print, listen=None)
-    asyncio.run(assistant._determine_task("website research"))
+        # Removed: elif agent_type == "writer assistent" and not hasattr(self, "writer_agent"):
+        # Removed:     self.writer_agent = AIWriterAgent(speak=lambda x: x)
+        # Removed:     self.logger.info("AIWriterAssistant loaded.")

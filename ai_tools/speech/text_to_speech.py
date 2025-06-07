@@ -15,6 +15,8 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 class TTSModel:
     def __init__(self, good_model_name="tts_models/multilingual/multi-dataset/xtts_v2"):
         # Good Model (TTS)
+        # TODO: Investigate Coqui TTS documentation for options to quantize xtts_v2
+        # or use smaller, faster models if available and suitable for desired quality.
         self.device = "cuda" if cuda.is_available() else "cpu"
         self.tts = TTS(good_model_name).to(self.device)
         self.default_speaker = "Ana Florence"
@@ -64,6 +66,8 @@ class TTSModel:
             path = self.temp_audio
         try:
             self.logger.info(f"Generating speech using TTS model for text: {text}")
+            # TODO: Explore if Coqui TTS supports streaming output to reduce latency,
+            # and refactor this method to use a streaming approach if possible.
             await asyncio.to_thread(
                 self.tts.tts_to_file,
                 text,  # The first argument (text)

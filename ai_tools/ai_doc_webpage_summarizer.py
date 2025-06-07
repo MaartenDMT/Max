@@ -1,6 +1,8 @@
 import os
 import tempfile
 import time
+import logging
+import asyncio  # Import asyncio for to_thread
 
 import requests
 import spacy
@@ -19,6 +21,8 @@ from langchain_community.llms.ollama import Ollama
 from langchain_community.vectorstores import Chroma
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+from utils.loggers import LoggerSetup
+
 
 class WebPageSummarizer:
     def __init__(self, max_retries=3, retry_delay=2):
@@ -28,13 +32,22 @@ class WebPageSummarizer:
             "en_core_web_sm"
         )  # Load a small English model for keyword extraction
 
-    def validate_url(self, url):
-        """Validates the given URL."""
+        # Setup logger
+        log_setup = LoggerSetup()
+        self.logger = log_setup.get_logger(
+            "WebPageSummarizer", "web_page_summarizer.log"
+        )
+        self.logger.info("WebPageSummarizer initialized.")
+
+    async def validate_url(self, url):
+        """Validates the given URL asynchronously."""
         if not validators.url(url):
             raise ValueError(f"Invalid URL: {url}")
 
         try:
-            response = requests.head(url, allow_redirects=True, timeout=5)
+            response = await asyncio.to_thread(
+                requests.head, url, allow_redirects=True, timeout=5
+            )
             if response.status_code >= 400:
                 raise ValueError(
                     f"URL is not accessible, status code: {response.status_code}"
@@ -47,28 +60,31 @@ class WebPageSummarizer:
         if not question or not isinstance(question, str) or not question.strip():
             raise ValueError("Question must be a non-empty string.")
 
-    def retry_on_failure(self, func, *args, **kwargs):
-        """Retry mechanism with exponential backoff for network-related functions."""
+    async def retry_on_failure(self, func, *args, **kwargs):
+        """Retry mechanism with exponential backoff for network-related functions asynchronously."""
         attempts = 0
         while attempts < self.max_retries:
             try:
-                return func(*args, **kwargs)
+                return await func(*args, **kwargs)
             except requests.RequestException as e:
                 attempts += 1
-                print(
+                self.logger.warning(
                     f"Attempt {attempts} failed: {e}. Retrying in {self.retry_delay ** attempts} seconds..."
                 )
-                time.sleep(self.retry_delay**attempts)
+                await asyncio.sleep(self.retry_delay**attempts)
+        self.logger.error(
+            f"Failed after {self.max_retries} attempts to call {func.__name__}."
+        )
         raise Exception(f"Failed after {self.max_retries} attempts")
 
-    def get_documents(self, url):
-        """Load and split documents from a URL with retry mechanism."""
-        content_type = self._determine_content_type(url)
+    async def get_documents(self, url):
+        """Load and split documents from a URL with retry mechanism asynchronously."""
+        content_type = await self._determine_content_type(url)
 
         if content_type == "html":
-            docs = self.retry_on_failure(self._load_html, url)
+            docs = await self.retry_on_failure(self._load_html, url)
         elif content_type == "pdf":
-            docs = self.retry_on_failure(self._load_pdf, url)
+            docs = await self.retry_on_failure(self._load_pdf, url)
         else:
             raise ValueError(f"Unsupported content type: {content_type}")
 
@@ -80,10 +96,12 @@ class WebPageSummarizer:
 
         return split_docs
 
-    def _determine_content_type(self, url):
-        """Determine the content type of the URL."""
+    async def _determine_content_type(self, url):
+        """Determine the content type of the URL asynchronously."""
         try:
-            response = requests.head(url, allow_redirects=True, timeout=5)
+            response = await asyncio.to_thread(
+                requests.head, url, allow_redirects=True, timeout=5
+            )
             content_type = response.headers.get("Content-Type", "")
             if "text/html" in content_type:
                 return "html"
@@ -94,34 +112,37 @@ class WebPageSummarizer:
         except requests.RequestException as e:
             raise ValueError(f"Failed to determine content type: {e}")
 
-    def _load_html(self, url):
-        """Load HTML content, filter it, and convert it to a document."""
+    async def _load_html(self, url):
+        """Load HTML content, filter it, and convert it to a document asynchronously."""
         try:
-            docs = WebBaseLoader(url).load()
-            print("loading the html")
+            docs = await asyncio.to_thread(WebBaseLoader(url).load)
+            self.logger.info("Loading HTML from %s", url)
             return docs
         except Exception as e:
-            print(f"Failed to load HTML: {e}")
+            self.logger.error(f"Failed to load HTML from {url}: {e}")
+            return []  # Return empty list on failure to avoid NoneType errors
 
-    def _load_pdf(self, url):
-        """Load and process a PDF document from the URL."""
-        response = requests.get(url)
+    async def _load_pdf(self, url):
+        """Load and process a PDF document from the URL asynchronously."""
+        response = await asyncio.to_thread(requests.get, url)
         response.raise_for_status()
 
-        print("loading the pdf")
+        self.logger.info("Loading PDF from %s", url)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
             temp_pdf.write(response.content)
             pdf_loader = PyPDFLoader(temp_pdf.name)
-            docs = pdf_loader.load()
+            docs = await asyncio.to_thread(pdf_loader.load)
 
         os.remove(temp_pdf.name)
         return docs
 
-    def create_db(self, docs):
-        """Create a vector store database from documents."""
-        print("creating the database")
+    async def create_db(self, docs):
+        """Create a vector store database from documents asynchronously."""
+        self.logger.info("Creating the vector database.")
         embedding = OllamaEmbeddings(model="nomic-embed-text")
-        vector_store = Chroma.from_documents(docs, embedding=embedding)
+        vector_store = await asyncio.to_thread(
+            Chroma.from_documents, docs, embedding=embedding
+        )
         return vector_store
 
     def create_chain(self, vector_store, summary_length="detailed"):
@@ -130,7 +151,7 @@ class WebPageSummarizer:
             model="gemma2:2b",
             temperature=0.4,
         )
-        print("creating a chain")
+        self.logger.info("Creating a retrieval chain.")
         if summary_length == "brief":
             prompt_text = "Provide a brief summary based on the context: {context}"
         else:
@@ -167,36 +188,34 @@ class WebPageSummarizer:
 
         return retrieval_chain
 
-    def process_chat(self, chain, question, chat_history):
-        """Process the chat by invoking the chain."""
-        print("processing chat")
-        response = chain.invoke({"input": question, "chat_history": chat_history})
+    async def process_chat(self, chain, question, chat_history):
+        """Process the chat by invoking the chain asynchronously."""
+        self.logger.info("Processing chat with the retrieval chain.")
+        response = await asyncio.to_thread(
+            chain.invoke, {"input": question, "chat_history": chat_history}
+        )
         return response["answer"]
 
-    def extract_keywords(self, text, num_keywords=5):
-        """Extract keywords from the summarized text."""
-        print("extracting the keywords from the summarized text.")
-        doc = self.nlp(text)
+    async def extract_keywords(self, text, num_keywords=5):
+        """Extract keywords from the summarized text asynchronously."""
+        self.logger.info("Extracting keywords from the summarized text.")
+        doc = await asyncio.to_thread(self.nlp, text)
         keywords = [token.text for token in doc if token.is_alpha and not token.is_stop]
         vectorizer = TfidfVectorizer(max_features=num_keywords)
-        X = vectorizer.fit_transform([" ".join(keywords)])
+        X = await asyncio.to_thread(vectorizer.fit_transform, [" ".join(keywords)])
         keywords = vectorizer.get_feature_names_out()
         return keywords
 
-    def summarize_website(self, url, question, summary_length="detailed"):
-        """Main method to summarize a website with advanced features."""
-        self.validate_url(url)
+    async def summarize_website(self, url, question, summary_length="detailed"):
+        """Main method to summarize a website with advanced features asynchronously."""
+        await self.validate_url(url)
         self.validate_question(question)
 
-        docs = self.get_documents(url)
-        vector_store = self.create_db(docs)
+        docs = await self.get_documents(url)
+        vector_store = await self.create_db(docs)
         chain = self.create_chain(vector_store, summary_length=summary_length)
         chat_history = []
-        response = self.process_chat(chain, question, chat_history)
-        keywords = self.extract_keywords(response)
+        response = await self.process_chat(chain, question, chat_history)
+        keywords = await self.extract_keywords(response)
 
         return {"summary": response, "keywords": keywords}
-
-    def __del__(self):
-        """Destructor to close the connection."""
-        pass
