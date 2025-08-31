@@ -4,3 +4,6 @@ __pycache__
 .env
 *.csv
 flagged
+.gemini/
+gha-creds-*.json
+.venv*

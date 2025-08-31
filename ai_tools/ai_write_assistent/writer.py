@@ -1,5 +1,4 @@
 import asyncio
-from utils.loggers import LoggerSetup
 
 # Import the necessary agents
 from ai_tools.ai_write_assistent.agents import (
@@ -18,11 +17,10 @@ from ai_tools.ai_write_assistent.agents import (
 
 # Import helper functions
 from ai_tools.ai_write_assistent.helpers import (
-    clean_up,
     extract_and_save_json,
     process_json_in_chunks,
 )
-
+from utils.loggers import LoggerSetup
 
 # Set maximum chunk size (tokens)
 MAX_CHUNK_SIZE = 2048  # Adjust this value as needed

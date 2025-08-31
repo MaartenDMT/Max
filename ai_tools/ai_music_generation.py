@@ -1,12 +1,19 @@
-import os
 import asyncio  # Import asyncio for to_thread
+import os
 
 import numpy as np
 import torch
 import torchaudio
 from einops import rearrange
-from stable_audio_tools import get_pretrained_model
-from stable_audio_tools.inference.generation import generate_diffusion_cond
+
+# stable-audio-tools is large and optional; import lazily and provide clear errors
+try:
+    from stable_audio_tools import get_pretrained_model
+    from stable_audio_tools.inference.generation import generate_diffusion_cond
+    _STABLE_AUDIO_AVAILABLE = True
+except Exception:  # pragma: no cover - optional dependency
+    _STABLE_AUDIO_AVAILABLE = False
+
 
 from utils.loggers import LoggerSetup
 
@@ -25,6 +32,18 @@ class MusicLoopGenerator:
         self.device = (
             device if device else ("cuda" if torch.cuda.is_available() else "cpu")
         )
+
+        # If stable-audio-tools is unavailable, degrade gracefully and log a warning.
+        if not _STABLE_AUDIO_AVAILABLE:  # pragma: no cover - runtime path depends on install
+            self.logger.warning(
+                "stable-audio-tools not installed; MusicLoopGenerator disabled."
+            )
+            self.model = None
+            # sensible defaults for downstream code that might inspect these
+            self.model_config = {"sample_rate": 44100, "sample_size": 1024}
+            self.sample_rate = self.model_config["sample_rate"]
+            self.sample_size = self.model_config["sample_size"]
+            return
 
         # Load the pre-trained model - assuming get_pretrained_model can be blocking
         self.model, self.model_config = get_pretrained_model(model_name)

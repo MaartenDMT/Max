@@ -1,5 +1,6 @@
 import logging
 import os
+from logging.handlers import RotatingFileHandler
 
 
 class LoggerSetup:
@@ -25,13 +26,17 @@ class LoggerSetup:
 
         # Check if the logger already has handlers
         if not logger.handlers:
-            # Create file handler which logs even debug messages
-            file_handler = logging.FileHandler(os.path.join(self.log_dir, log_file))
+            # Create rotating file handler to cap log size
+            file_handler = RotatingFileHandler(
+                os.path.join(self.log_dir, log_file), maxBytes=5 * 1024 * 1024, backupCount=3
+            )
             file_handler.setLevel(level)
 
-            # Create console handler with a higher log level
+            # Create console handler with configurable log level (default INFO in dev)
+            console_level_name = os.getenv("LOG_CONSOLE_LEVEL", "INFO").upper()
+            console_level = getattr(logging, console_level_name, logging.INFO)
             console_handler = logging.StreamHandler()
-            console_handler.setLevel(logging.ERROR)
+            console_handler.setLevel(console_level)
 
             # Create formatter and add it to the handlers
             formatter = logging.Formatter(

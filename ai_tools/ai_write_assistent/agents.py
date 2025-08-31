@@ -1,26 +1,42 @@
 import json
 import re
 
-import ollama
+try:
+    import ollama  # optional
+except Exception:  # pragma: no cover - optional dep
+    ollama = None
 from dotenv import load_dotenv
-from langchain_ollama import ChatOllama
-from termcolor import colored
+
+try:
+    from langchain_ollama import ChatOllama  # optional
+except Exception:  # pragma: no cover - optional dep
+    ChatOllama = None
+try:
+    from termcolor import colored  # optional
+except Exception:  # pragma: no cover - optional dep
+    def colored(text, *_, **__):
+        return text
 
 # Load environment variables from .env file
 load_dotenv(".env")
 
-model_ = ChatOllama(
-    model="llama3.1",
-    temperature=0.5,
-    num_predict=-1,
+model_ = (
+    ChatOllama(
+        model="llama3.1",
+        temperature=0.5,
+        num_predict=-1,
+    )
+    if ChatOllama is not None
+    else None
 )
 
-model = ollama.Client()
+model = ollama.Client() if (ollama is not None and hasattr(ollama, "Client")) else None
 
 
 def get_facts(text):
     # Replace placeholders like {{LONG_TEXT}} with real values
-
+    if model_ is None:
+        return "<json>{}\n</json>"
     message = model_.invoke(
         input=[
             {
@@ -89,7 +105,8 @@ Enclose your JSON within <json> tags. Ensure your JSON is properly formatted and
 
 
 def character_generator(facts, book_description):
-
+    if model_ is None:
+        return "<json>[]</json>"
     # Replace placeholders like {{TEXT}} with real values
 
     message = model_.invoke(
@@ -133,8 +150,8 @@ Now, provide your detailed character descriptions in JSON format. Enclose your J
 ]
 </json>
 
-Ensure that you create at least 5 unique characters, but feel free to generate more if inspired by the text and book description. 
-Make each character distinct and memorable, with clear connections to the provided materials. 
+Ensure that you create at least 5 unique characters, but feel free to generate more if inspired by the text and book description.
+Make each character distinct and memorable, with clear connections to the provided materials.
 Ensure your JSON is properly formatted and valid, be sure to double check it. After the </json> tag, do not write anything else.
 """,
                     }
@@ -154,6 +171,8 @@ Ensure your JSON is properly formatted and valid, be sure to double check it. Af
 
 def plot_generator(facts, character_descriptions):
     # Replace placeholders like {{FACTS}} with real values
+    if model_ is None:
+        return "<json>{}</json>"
 
     message = model_.invoke(
         input=[
@@ -244,7 +263,7 @@ Present your detailed plot outline as a JSON object with the following structure
 }}
 </json>
 
-Ensure that your plot outline is coherent, engaging, and makes full use of the provided facts and character descriptions. 
+Ensure that your plot outline is coherent, engaging, and makes full use of the provided facts and character descriptions.
 The plot should be detailed enough to serve as a comprehensive guide for writing a full-length novel.""",
                     }
                 ],
@@ -263,6 +282,8 @@ The plot should be detailed enough to serve as a comprehensive guide for writing
 
 def world_building_generator(facts, plot):
     # Generate detailed world-building elements such as geography, history, cultures, and societies
+    if model_ is None:
+        return "<json>{}</json>"
 
     message = model_.invoke(
         input=[
@@ -364,6 +385,8 @@ Ensure that your world-building elements are detailed and contribute to the dept
 
 def generate_magic_system(facts, plot):
     # Create a magic system that fits within the world and plot
+    if model_ is None:
+        return "<json>{}</json>"
 
     message = model_.invoke(
         input=[
@@ -747,7 +770,7 @@ def agent_selector(facts):
 
     You must choose only from the above agents.
 
-    Based on the following facts, decide which agents should be run to generate appropriate content. 
+    Based on the following facts, decide which agents should be run to generate appropriate content.
     Only return the exact agent names that are listed above. Do not include any names that are not on this list.
 
     <facts>

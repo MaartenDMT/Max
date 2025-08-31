@@ -1,0 +1,97 @@
+[project]
+name = "max-assistant"
+version = "0.1.0"
+description = "FastAPI-based multi-agent assistant (LangGraph, LangChain, CrewAI)"
+authors = [{ name = "Max" }]
+requires-python = "~=3.11.0"
+readme = "README.md"
+
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.3",
+  "httpx>=0.27",
+  "python-dotenv>=1.0",
+  "validators>=0.22",
+  "scikit-learn>=1.3",
+  "spacy>=3.7",
+  "chromadb>=1.0",
+  "langchain-core>=0.3",
+  "langchain-community>=0.3",
+  "langchain-openai>=0.2",
+  "langchain-ollama>=0.1",
+  "langgraph>=0.2",
+  "sqlalchemy>=2.0",
+  "alembic>=1.13",
+  "python-decouple>=3.8",
+  "asyncpg",
+  "psycopg2-binary",
+  "typing-extensions>=4.7.1",
+  # Text splitters are a separate package in LC 0.3
+  "langchain-text-splitters>=0.3",
+  # App utilities and adapters used across modules
+  "termcolor>=2.4",
+  "wikipedia>=1.4",
+  "beautifulsoup4>=4.12",
+  "lxml>=5.2",
+  "psutil>=5.9",
+  "pyautogui>=0.9",
+  "pyjokes>=0.6",
+  "pywhatkit>=5.4",
+  "duckduckgo-search>=6.2",
+  "einops>=0.7",
+  # transformers 4.50 removes GenerationMixin from PreTrainedModel; pin below 4.50 for XTTS deps
+  "transformers<4.50",
+  # Speech & audio I/O and TTS/STT stacks
+  "pyttsx3>=2.90",
+  "pydub>=0.25",
+  "simpleaudio>=1.0",
+  "TTS>=0.22.0",
+  # STT core deps (kept lazy at runtime for faster startup)
+  "openai-whisper>=20231117",
+  "faster-whisper>=1.0",
+  "sounddevice>=0.4",
+  "prompt-toolkit>=3.0",
+  "pynput>=1.7",
+  "numpy>=1.23,<2.0",
+  "scipy>=1.10",
+  # Windows-specific runtime for pyttsx3 (SAPI5)
+  "pywin32>=305; sys_platform == 'win32'",
+  "comtypes>=1.2; sys_platform == 'win32'",
+  # CUDA PyTorch wheels (explicit URLs) - ensure uv preserves GPU wheels on sync
+  "torch @ https://download.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp311-cp311-win_amd64.whl",
+  "torchvision @ https://download.pytorch.org/whl/cu124/torchvision-0.21.0%2Bcu124-cp311-cp311-win_amd64.whl",
+  "torchaudio @ https://download.pytorch.org/whl/cu124/torchaudio-2.6.0%2Bcu124-cp311-cp311-win_amd64.whl",
+]
+
+[project.optional-dependencies]
+# Keep dev-only tools as an extra; heavy/optional ecosystems (audio, crew) are intentionally omitted
+# to avoid resolver conflicts with protobuf/OTel. Use a separate venv if needed.
+dev = ["pytest>=8.2", "pytest-asyncio>=0.23"]
+
+# Speech-to-text stack (install only if you need STT features)
+stt = [
+  "openai-whisper>=20231117",
+  "faster-whisper>=1.0",
+  "sounddevice>=0.4",
+  "prompt-toolkit>=3.0",
+  "pynput>=1.7",
+  # Explicit bases for STT
+  "numpy>=1.23,<2.0",
+  "scipy>=1.10",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+python_files = ["tests/*.py"]
+
+[tool.uv]
+# Limit dependency resolution to this environment only
+# (avoid linux/py3.13 cross-environment conflicts observed during sync).
+environments = [
+  "sys_platform == 'win32' and python_full_version >= '3.11' and python_full_version < '3.12'",
+]
+
+# By default don't resolve optional extras; none are defined besides 'dev'.
+default-groups = []

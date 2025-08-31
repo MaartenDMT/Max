@@ -1,11 +1,13 @@
-from pydantic import BaseModel, Field
-from typing import Optional, Dict
+from typing import Dict, Literal, Optional
+
+from pydantic import BaseModel, Field, HttpUrl
+from pydantic.types import conint
 
 # AI Assistant Schemas
 
 
 class SummarizeYoutubeRequest(BaseModel):
-    video_url: str = Field(..., description="The YouTube video URL to summarize.")
+    video_url: HttpUrl = Field(..., description="The video URL to summarize (YouTube or Rumble).")
 
 
 class SummarizeYoutubeResponse(BaseModel):
@@ -16,7 +18,7 @@ class SummarizeYoutubeResponse(BaseModel):
 
 
 class ChatbotRequest(BaseModel):
-    mode: str = Field(..., description="The LLM mode (e.g., 'critique', 'reflecting').")
+    mode: Literal["critique", "reflecting"] = Field(..., description="The LLM mode.")
     summary: str = Field(..., description="A short summary of the content.")
     full_text: str = Field(..., description="The full text content for processing.")
 
@@ -34,8 +36,8 @@ class MusicGenerationRequest(BaseModel):
     prompt: str = Field(
         ..., description="Description of the music loop (e.g., 'hip hop beat loop')."
     )
-    bpm: int = Field(..., description="Beats per minute for the loop.")
-    duration: Optional[int] = Field(30, description="Duration of the loop in seconds.")
+    bpm: conint(ge=40, le=240) = Field(..., description="Beats per minute for the loop (40-240).")
+    duration: Optional[conint(ge=5, le=300)] = Field(30, description="Duration of the loop in seconds (5-300).")
 
 
 class MusicGenerationResponse(BaseModel):
@@ -50,7 +52,7 @@ class MusicGenerationResponse(BaseModel):
 
 
 class ResearchRequest(BaseModel):
-    query: str = Field(..., description="The research query.")
+    query: str = Field(..., min_length=3, description="The research query (min 3 chars).")
 
 
 class ResearchResponse(BaseModel):
@@ -65,7 +67,7 @@ class ResearchResponse(BaseModel):
 
 
 class WebsiteSummarizeRequest(BaseModel):
-    url: str = Field(..., description="The URL of the website to summarize.")
+    url: HttpUrl = Field(..., description="The URL of the website to summarize.")
     question: str = Field(
         ..., description="The question to ask about the website content."
     )

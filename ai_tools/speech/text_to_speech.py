@@ -1,11 +1,10 @@
 import asyncio
+import importlib
 import os
 
 import pyttsx3
 from pydub import AudioSegment
 from pydub.playback import play
-from torch import cuda
-from TTS.api import TTS
 
 from utils.loggers import LoggerSetup
 
@@ -17,8 +16,18 @@ class TTSModel:
         # Good Model (TTS)
         # TODO: Investigate Coqui TTS documentation for options to quantize xtts_v2
         # or use smaller, faster models if available and suitable for desired quality.
-        self.device = "cuda" if cuda.is_available() else "cpu"
-        self.tts = TTS(good_model_name).to(self.device)
+        # Resolve device lazily to avoid hard torch import at module import time
+        try:
+            torch = importlib.import_module("torch")
+            self.device = (
+                "cuda"
+                if getattr(torch, "cuda", None) is not None and torch.cuda.is_available()
+                else "cpu"
+            )
+        except Exception:
+            self.device = "cpu"
+        self.tts = None  # Coqui TTS model instance (lazy)
+        self._good_model_name = good_model_name
         self.default_speaker = "Ana Florence"
         self.default_language = "en"
         self.temp_audio = "data/audio/temp_audio.wav"
@@ -28,7 +37,7 @@ class TTSModel:
         self.bad_tts_engine.setProperty("rate", 150)  # Default speaking rate
         self.bad_tts_engine.setProperty("volume", 1.0)  # Max volume
 
-        # Default to good model (TTS)
+        # Default preference to good model; we'll try to init it on first use
         self.use_good_model = True
 
         # Setup logger
@@ -37,6 +46,25 @@ class TTSModel:
 
         # Log initialization
         self.logger.info("TTS Model initialized.")
+
+    def _try_allowlist_qualified(self, qualified: str) -> bool:
+        """Allowlist a fully qualified class/function name for torch safe deserialization.
+        Example: 'TTS.config.shared_configs.BaseDatasetConfig'
+        """
+        try:
+            torch = importlib.import_module("torch")
+            serialization = getattr(torch, "serialization", None)
+            if not (serialization and hasattr(serialization, "add_safe_globals")):
+                return False
+            mod_name, cls_name = qualified.rsplit(".", 1)
+            mod = importlib.import_module(mod_name)
+            cls = getattr(mod, cls_name)
+            serialization.add_safe_globals([cls])
+            self.logger.debug("Allowlisted safe global: %s", qualified)
+            return True
+        except Exception as e:
+            self.logger.debug("Failed to allowlist %s: %s", qualified, e)
+            return False
 
     def set_good_model(self):
         """Switch to the good model (TTS)."""
@@ -65,20 +93,82 @@ class TTSModel:
         if path is None:
             path = self.temp_audio
         try:
+            if not self.tts:
+                # Try to lazy-load Coqui TTS only now
+                try:  # pragma: no cover - optional dependency
+                    tts_api = importlib.import_module("TTS.api")
+                    TTSClass = getattr(tts_api, "TTS")
+                    # PyTorch 2.6+ defaults to weights_only=True which breaks legacy checkpoints
+                    # Allowlist Coqui's XTTS configs for safe deserialization when trusted.
+                    try:
+                        torch = importlib.import_module("torch")
+                        serialization = getattr(torch, "serialization", None)
+                        if serialization and hasattr(serialization, "add_safe_globals"):
+                            xtts_cfg_mod = importlib.import_module(
+                                "TTS.tts.configs.xtts_config"
+                            )
+                            XttsConfig = getattr(xtts_cfg_mod, "XttsConfig")
+                            xtts_model_mod = importlib.import_module(
+                                "TTS.tts.models.xtts"
+                            )
+                            XttsAudioConfig = getattr(xtts_model_mod, "XttsAudioConfig")
+                            # Also frequently required shared config types
+                            try:
+                                shared_cfg_mod = importlib.import_module(
+                                    "TTS.config.shared_configs"
+                                )
+                                BaseDatasetConfig = getattr(shared_cfg_mod, "BaseDatasetConfig")
+                                serialization.add_safe_globals([
+                                    XttsConfig,
+                                    XttsAudioConfig,
+                                    BaseDatasetConfig,
+                                ])
+                            except Exception:
+                                serialization.add_safe_globals([XttsConfig, XttsAudioConfig])
+                    except Exception as e:
+                        # Best-effort; will fallback to pyttsx3 on failure
+                        self.logger.debug("Safe globals setup failed: %s", e)
+                    # Attempt model init with up to 3 dynamic allowlisting retries
+                    last_err = None
+                    for _ in range(3):
+                        try:
+                            self.tts = TTSClass(self._good_model_name).to(self.device)
+                            break
+                        except Exception as ie:
+                            last_err = ie
+                            msg = str(ie)
+                            # Parse "Unsupported global: GLOBAL package.path.ClassName"
+                            marker = "Unsupported global: GLOBAL "
+                            if marker in msg:
+                                start = msg.find(marker) + len(marker)
+                                end = msg.find(" ", start)
+                                if end == -1:
+                                    end = len(msg)
+                                qualified = msg[start:end].strip()
+                                if not self._try_allowlist_qualified(qualified):
+                                    break
+                                else:
+                                    continue
+                            else:
+                                break
+                    else:
+                        # Exhausted retries
+                        raise last_err
+                except Exception as e:
+                    # Fallback if unavailable
+                    self.logger.warning(f"Coqui TTS unavailable, falling back: {e}")
+                    await self._speak_bad_model(text)
+                    return
             self.logger.info(f"Generating speech using TTS model for text: {text}")
             # TODO: Explore if Coqui TTS supports streaming output to reduce latency,
             # and refactor this method to use a streaming approach if possible.
             await asyncio.to_thread(
                 self.tts.tts_to_file,
-                text,  # The first argument (text)
-                self.default_speaker,  # The second argument (speaker)
-                self.default_language,  # The third argument (language)
-                None,  # speaker_wav (None by default)
-                None,  # emotion (None by default)
-                1,  # speed (default 1)
-                None,  # pipe_out (None by default)
-                path,  # file_path (output file path)
-                True,  # split_sentences (default True)
+                text=text,
+                speaker=self.default_speaker,
+                language=self.default_language,
+                file_path=path,
+                split_sentences=True,
             )
             await self._play_audio(path)
             self.logger.info(f"Speech generated and played for text: {text}")

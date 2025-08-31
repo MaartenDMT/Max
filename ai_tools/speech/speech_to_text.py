@@ -1,19 +1,14 @@
 import asyncio
+import importlib
 import os
 import tempfile
 import time
+from typing import Optional
 
-import numpy as np
-import sounddevice as sd
-import whisper
-from faster_whisper import WhisperModel
-from prompt_toolkit import Application
-from prompt_toolkit.key_binding import KeyBindings
-from pynput import keyboard
-from scipy.io.wavfile import write
-from torch import cuda
+# Heavy deps are lazy-loaded when needed:
+# numpy, sounddevice, torch, whisper, faster_whisper, prompt_toolkit, pynput, scipy
 from pydub import AudioSegment
-from pathlib import Path
+
 from utils.loggers import LoggerSetup
 
 TO_MINUTE = 60
@@ -23,23 +18,31 @@ MAX_SIZE_MB = 400  # Maximum size in MB
 class TranscribeFastModel:
     def __init__(
         self,
-        model_size="base.en",
-        device="cuda" if cuda.is_available() else "cpu",
-        compute_type="float16",
-        sample_rate=44100,
-    ):
+        model_size: str = "base.en",
+        device: Optional[str] = None,
+        compute_type: str = "float16",
+        sample_rate: int = 44100,
+    ) -> None:
         self.model_size = model_size
-        self.device = device
+        # Resolve device lazily to avoid importing torch at module import time
+        if device is None:
+            try:
+                torch = importlib.import_module("torch")
+                self.device = "cuda" if getattr(torch, "cuda").is_available() else "cpu"
+            except Exception:
+                self.device = "cpu"
+        else:
+            self.device = device
         self.compute_type = compute_type
         self.sample_rate = sample_rate
         # TODO: Investigate using smaller model_size (e.g., "tiny.en", "small.en") for faster inference
         # if acceptable accuracy trade-off.
         # TODO: Experiment with compute_type="int8" or "int8_float16" for further quantization and speed gains.
-        self.model = WhisperModel(model_size, device=device, compute_type=compute_type)
+        self._fw_model = None  # faster-whisper model, created on first use
         self.ctrl_pressed = False
         self._stop_event = asyncio.Event()
         self.is_recording = False
-        self.app = None  # Will hold the prompt_toolkit Application
+        self.app = None  # prompt_toolkit Application (lazy)
 
         # Setup logger
         log_setup = LoggerSetup()
@@ -56,10 +59,11 @@ class TranscribeFastModel:
         if self.app and self.app.is_running:
             self.app.exit()
 
-    async def record_audio(self, timeout=60):
+    async def record_audio(self, timeout: int = 60):
         """Record audio asynchronously."""
         try:
             self.logger.info("Waiting for recording to start.")
+            np = importlib.import_module("numpy")
             recording = np.array([], dtype="float64").reshape(0, 2)
             frames_per_buffer = int(self.sample_rate * 0.1)
             start_time = time.time()
@@ -73,6 +77,7 @@ class TranscribeFastModel:
 
             # Start capturing audio
             while self.is_recording and not self._stop_event.is_set():
+                sd = importlib.import_module("sounddevice")
                 chunk = await asyncio.to_thread(
                     sd.rec,
                     frames_per_buffer,
@@ -92,6 +97,7 @@ class TranscribeFastModel:
     def save_temp_audio(self, recording):
         """Save the recorded audio to a temporary file."""
         try:
+            write = importlib.import_module("scipy.io.wavfile").write
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
             write(temp_file.name, self.sample_rate, recording)
             self.logger.info(f"Audio saved to temporary file: {temp_file.name}")
@@ -118,13 +124,18 @@ class TranscribeFastModel:
                 audio_segments = [audio_filepath]  # No splitting needed
 
             full_transcription = ""
-            for segment_filepath in audio_segments:  # Changed variable name here
+            # Load or create faster-whisper model lazily
+            if self._fw_model is None:
+                WhisperModel = getattr(importlib.import_module("faster_whisper"), "WhisperModel")
+                self._fw_model = WhisperModel(self.model_size, device=self.device, compute_type=self.compute_type)
+
+            for segment_filepath in audio_segments:
                 self.logger.info(f"Transcribing segment: {segment_filepath}")
-                segments, info = self.model.transcribe(
+                segments, info = self._fw_model.transcribe(
                     segment_filepath, beam_size=5, language="en"
                 )
 
-                for transcribed_segment in segments:  # Changed variable name here
+                for transcribed_segment in segments:
                     self.logger.info(
                         "[%.2fm -> %.2fm] %s",
                         transcribed_segment.start / TO_MINUTE,
@@ -143,6 +154,10 @@ class TranscribeFastModel:
         """Run the recording and transcription process."""
         transcription = ""
         try:
+            # Lazy import prompt_toolkit
+            pt = importlib.import_module("prompt_toolkit")
+            Application = getattr(pt, "Application")
+            KeyBindings = getattr(pt.key_binding, "KeyBindings")
             kb = KeyBindings()
 
             @kb.add("c-d")
@@ -205,14 +220,21 @@ def split_audio(audio_filepath):
 class TranscribeSlowModel:
     def __init__(
         self,
-        model_size="base.en",
-        sample_rate=44100,
-        device="cuda" if cuda.is_available() else "cpu",
-    ):
+        model_size: str = "base.en",
+        sample_rate: int = 44100,
+        device: Optional[str] = None,
+    ) -> None:
         self.model_size = model_size
         self.sample_rate = sample_rate
-        self.device = device
-        self.model = whisper.load_model(model_size).to(device)
+        if device is None:
+            try:
+                torch = importlib.import_module("torch")
+                self.device = "cuda" if getattr(torch, "cuda").is_available() else "cpu"
+            except Exception:
+                self.device = "cpu"
+        else:
+            self.device = device
+        self._slow_model = None  # lazy-loaded openai-whisper model
         self.is_recording = False
         self.ctrl_pressed = False  # Track if Ctrl is pressed
 
@@ -226,6 +248,7 @@ class TranscribeSlowModel:
 
     def on_press(self, key):
         """Handle key press event."""
+        keyboard = importlib.import_module("pynput.keyboard")
         if key == keyboard.Key.ctrl_r:
             self.ctrl_pressed = False
         if key == keyboard.Key.space and self.ctrl_pressed:
@@ -235,6 +258,7 @@ class TranscribeSlowModel:
 
     def on_release(self, key):
         """Handle key release event."""
+        keyboard = importlib.import_module("pynput.keyboard")
         if key == keyboard.Key.ctrl_r:
             self.ctrl_pressed = False
         if key == keyboard.Key.space and self.is_recording:
@@ -247,14 +271,17 @@ class TranscribeSlowModel:
         self.logger.info("Waiting for hotkey press to start recording.")
         recording = None
         try:
+            np = importlib.import_module("numpy")
             recording = np.array([], dtype="float64").reshape(0, 2)
             frames_per_buffer = int(self.sample_rate * 0.1)
 
+            keyboard = importlib.import_module("pynput.keyboard")
             with keyboard.Listener(
                 on_press=self.on_press, on_release=self.on_release
             ) as listener:
                 while True:
                     if self.is_recording:
+                        sd = importlib.import_module("sounddevice")
                         chunk = sd.rec(
                             frames_per_buffer,
                             samplerate=self.sample_rate,
@@ -274,6 +301,7 @@ class TranscribeSlowModel:
     def save_temp_audio(self, recording):
         """Save the recorded audio to a temporary file."""
         try:
+            write = importlib.import_module("scipy.io.wavfile").write
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
             write(temp_file.name, self.sample_rate, recording)
             self.logger.info("Audio saved to temporary file: %s", temp_file.name)
@@ -285,7 +313,10 @@ class TranscribeSlowModel:
         """Transcribe the given audio file using Whisper."""
         try:
             self.logger.info("Transcribing audio file: %s", audio_filepath)
-            result = self.model.transcribe(audio_filepath)
+            if self._slow_model is None:
+                whisper = importlib.import_module("whisper")
+                self._slow_model = whisper.load_model(self.model_size).to(self.device)
+            result = self._slow_model.transcribe(audio_filepath)
             if (
                 isinstance(result, dict)
                 and "text" in result

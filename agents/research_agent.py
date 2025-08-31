@@ -11,7 +11,10 @@ class AIResearchAgent:
     async def handle_research(self, query: str) -> dict:
         """Handle research tasks using AIResearchTools."""
         try:
-            response = self.research_tools.process_chat(query)
+            if not isinstance(query, str) or not query.strip():
+                return {"status": "error", "message": "Empty research query."}
+            # process_chat is synchronous; offload to thread
+            response = await asyncio.to_thread(self.research_tools.process_chat, query)
             return {"status": "success", "result": response}
         except Exception as e:
             return {"status": "error", "message": f"Error during research: {str(e)}"}
@@ -19,9 +22,17 @@ class AIResearchAgent:
     async def handle_text_summarization(self, text: str) -> dict:
         """Handle text summarization using the custom summarization tool."""
         try:
+            if not isinstance(text, str) or not text.strip():
+                return {"status": "error", "message": "Empty text to summarize."}
             summarize_tool = self.research_tools.summarize_text_tool
-            result = summarize_tool._run(text=text)  # Call _run directly
-            return {"status": "success", "summary": result}
+            # _run is sync; keep sync but offload to thread for API safety
+            result = await asyncio.to_thread(summarize_tool._run, text=text)
+            # result is JSON string; ensure dict return
+            try:
+                parsed = json.loads(result)
+            except Exception:
+                parsed = {"summary": str(result)}
+            return {"status": "success", **parsed}
         except Exception as e:
             return {
                 "status": "error",

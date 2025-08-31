@@ -1,6 +1,7 @@
 import re
-from ai_tools.ai_youtube_summary import YouTubeSummarizer
+
 from ai_tools.ai_rumble_summary import RumbleSummarizer
+from ai_tools.ai_youtube_summary import YouTubeSummarizer
 
 
 class VideoProcessingAgent:
@@ -41,6 +42,11 @@ class VideoProcessingAgent:
         Returns a dictionary with full_text, summary, and status.
         """
         # Step 1: Validate the input URL
+        if not isinstance(video_url, str) or not video_url.strip():
+            return {
+                "status": "error",
+                "message": "No video URL provided.",
+            }
         summarizer = self.get_summarizer(video_url)
         if summarizer is None:
             return {
@@ -74,6 +80,11 @@ class VideoProcessingAgent:
         If so, it calls process_user_request to summarize the video.
         Returns a dictionary with the result.
         """
+        if not isinstance(user_input, str) or not user_input.strip():
+            return {
+                "status": "error",
+                "message": "No input provided.",
+            }
         if (
             "youtube.com" in user_input
             or "youtu.be" in user_input

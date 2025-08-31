@@ -1,16 +1,16 @@
 import datetime
 import os
 import shutil  # To get disk space info
-import webbrowser
-import json  # Import json for structured output
 
 import psutil  # To get system information
 import pyautogui
 import pyjokes
 import pywhatkit  # Keep only this import for pywhatkit
-import requests
 
 from utils.loggers import LoggerSetup
+
+# requests removed; httpx used for async HTTP calls
+
 
 
 class SystemAssistant:
@@ -304,10 +304,13 @@ class SystemAssistant:
                     "message": "Location not provided for weather.",
                 }
             self.logger.info(f"Fetching weather for location: {location}")
+            import httpx
             api_key = "your_openweathermap_api_key"  # Replace with actual API key
-            response = requests.get(
-                f"http://api.openweathermap.org/data/2.5/weather?q={location}&appid={api_key}"
-            )
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.get(
+                    "http://api.openweathermap.org/data/2.5/weather",
+                    params={"q": location, "appid": api_key},
+                )
             if response.status_code == 200:
                 weather_data = response.json()
                 description = weather_data["weather"][0]["description"]

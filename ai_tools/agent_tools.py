@@ -1,26 +1,34 @@
 import asyncio
 import json
-from typing import (
-    Type,
-    ClassVar,
-)  # Keep for other potential uses if needed, but not for BaseTool args_schema
-from pydantic import BaseModel, Field
 
 # V-- THE MOST IMPORTANT FIX: Import BaseTool from crewai, NOT langchain --V
-from crewai.tools import BaseTool
+# CrewAI optional: provide a minimal BaseTool shim if not installed
+try:
+    from crewai.tools import BaseTool  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    class BaseTool:  # minimal shim
+        name: str = "BaseTool"
+        description: str = ""
 
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def _run(self, *args, **kwargs):
+            raise NotImplementedError("BaseTool shim: _run not implemented")
+
+        async def _arun(self, *args, **kwargs):
+            raise NotImplementedError("BaseTool shim: _arun not implemented")
+from langchain_core.messages import \
+    AIMessage  # Keep if AIMessage is still used by LLM responses
+
+from agents.video_agent import VideoProcessingAgent
+from ai_tools.ai_bookwriter.bookwriter import BookWriter
 # (Assuming these imports are correct and the modules exist)
 from ai_tools.ai_llm.llm_critique import CritiqueLLM
 from ai_tools.ai_llm.llm_reflecting import ReflectingLLM
 from ai_tools.ai_music_generation import MusicLoopGenerator
 from ai_tools.ai_research_agent import AIResearchTools
-from agents.video_agent import VideoProcessingAgent
-from ai_tools.ai_bookwriter.bookwriter import BookWriter
 from ai_tools.ai_write_assistent.writer import WriterAssistant
-from langchain_core.messages import (
-    AIMessage,
-)  # Keep if AIMessage is still used by LLM responses
-
 
 # Initialize dependencies
 _chatbot_llm_modes = {"reflecting": ReflectingLLM(), "critique": CritiqueLLM()}
@@ -62,8 +70,15 @@ class ChatbotTool(BaseTool):
         except Exception as e:
             return json.dumps({"error": f"Error in Chatbot Tool: {str(e)}"})
 
-    # _run is synchronous, so it calls _arun
+    # _run is synchronous, so it calls _arun via a private loop when safe
     def _run(self, mode: str, summary: str, full_text: str) -> str:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            # When already in an event loop, run in a worker thread
+            return asyncio.run(asyncio.to_thread(self._arun, mode, summary, full_text))
         return asyncio.run(self._arun(mode=mode, summary=summary, full_text=full_text))
 
 
@@ -100,6 +115,12 @@ class MusicGenerationTool(BaseTool):
             return json.dumps({"error": f"Error in Music Generation Tool: {str(e)}"})
 
     def _run(self, bpm: int, prompt: str) -> str:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            return asyncio.run(asyncio.to_thread(self._arun, bpm, prompt))
         return asyncio.run(self._arun(bpm=bpm, prompt=prompt))
 
 
@@ -125,6 +146,12 @@ class ResearchAgentTool(BaseTool):
             return json.dumps({"error": f"Error in Research Agent Tool: {str(e)}"})
 
     def _run(self, query: str) -> str:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            return asyncio.run(asyncio.to_thread(self._arun, query))
         return asyncio.run(self._arun(query=query))
 
 
@@ -159,6 +186,12 @@ class VideoSummarizerTool(BaseTool):
             return json.dumps({"error": f"Error in Video Summarizer Tool: {str(e)}"})
 
     def _run(self, video_url: str) -> str:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            return asyncio.run(asyncio.to_thread(self._arun, video_url))
         return asyncio.run(self._arun(video_url=video_url))
 
 
@@ -186,6 +219,14 @@ class StoryWriterTool(BaseTool):
             return json.dumps({"error": f"Error in Story Writer Tool: {str(e)}"})
 
     def _run(self, book_description: str, text_content: str) -> str:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            return asyncio.run(
+                asyncio.to_thread(self._arun, book_description, text_content)
+            )
         return asyncio.run(
             self._arun(book_description=book_description, text_content=text_content)
         )
@@ -218,6 +259,16 @@ class BookWriterTool(BaseTool):
             return json.dumps({"error": f"Error in Book Writer Tool: {str(e)}"})
 
     def _run(self, book_description: str, num_chapters: int, text_content: str) -> str:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            return asyncio.run(
+                asyncio.to_thread(
+                    self._arun, book_description, num_chapters, text_content
+                )
+            )
         return asyncio.run(
             self._arun(
                 book_description=book_description,

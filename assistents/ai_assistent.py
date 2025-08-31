@@ -7,14 +7,14 @@ from agents.music_agent import MusicCreationAgent
 from agents.orchestrator_agent import OrchestratorAgent
 from agents.research_agent import AIResearchAgent
 from agents.video_agent import VideoProcessingAgent
+from ai_tools.agent_tools import BookWriterTool, StoryWriterTool
+
+# Import the necessary BaseTools directly
+from ai_tools.crew_tools import WebPageResearcherTool, WebsiteSummarizerTool
 
 # Removed: from agents.webpage_agent import WebsiteProcessingAgent
 # Removed: from agents.writer_agent import AIWriterAgent
 from utils.loggers import LoggerSetup
-
-# Import the necessary BaseTools directly
-from ai_tools.crew_tools import WebsiteSummarizerTool, WebPageResearcherTool
-from ai_tools.agent_tools import StoryWriterTool, BookWriterTool
 
 
 class AIAssistant:
@@ -127,14 +127,14 @@ class AIAssistant:
                         "critique": critique_result.get("result"),
                         "critique_error": critique_result.get("error"),
                     }
-                    self.logger.info(f"YouTube video summarized with critique")
+                    self.logger.info("YouTube video summarized with critique")
                     return {
                         "status": "success",
                         "summary": json.dumps(summary_with_critique),
                         "full_text": full_text,
                     }
                 else:
-                    self.logger.info(f"YouTube video summarized")
+                    self.logger.info("YouTube video summarized")
                     return {
                         "status": "success",
                         "summary": summary,
@@ -165,11 +165,11 @@ class AIAssistant:
 
             self.logger.info(f"Received website URL: {url} with question: {question}")
             self.session_context["websites_visited"].append(url)
-            # Directly use WebsiteSummarizerTool
+            # Directly use WebsiteSummarizerTool (async-safe)
             summarizer_tool = WebsiteSummarizerTool()
-            result = summarizer_tool._run(
+            result = await summarizer_tool._arun(
                 url=url, question=question
-            )  # Use _run for synchronous tool
+            )
 
             # Ensure result is a dictionary before proceeding
             if not isinstance(result, dict):
@@ -217,11 +217,11 @@ class AIAssistant:
             self.logger.info(
                 f"Received research category: {category} with question: {question}"
             )
-            # Directly use WebPageResearcherTool
+            # Directly use WebPageResearcherTool (async-safe)
             researcher_tool = WebPageResearcherTool()
-            result = researcher_tool._run(
+            result = await researcher_tool._arun(
                 category=category, question=question
-            )  # Use _run for synchronous tool
+            )
 
             # Ensure result is a dictionary before proceeding
             if not isinstance(result, dict):
@@ -384,7 +384,7 @@ class AIAssistant:
                         "message": "For 'story' task, 'book_description' and 'text_content' are required.",
                     }
                 writer_tool = StoryWriterTool()
-                story_output = writer_tool._run(
+                story_output = await writer_tool._arun(
                     book_description=book_description, text_content=text_content
                 )
                 # The _run method of StoryWriterTool returns a JSON string, so parse it
@@ -406,7 +406,7 @@ class AIAssistant:
                         "message": "For 'book' task, 'book_description', 'num_chapters', and 'text_content' are required.",
                     }
                 book_tool = BookWriterTool()
-                book_output = book_tool._run(
+                book_output = await book_tool._arun(
                     book_description=book_description,
                     num_chapters=num_chapters,
                     text_content=text_content,

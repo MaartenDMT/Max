@@ -2,10 +2,23 @@
 
 import asyncio
 import json
-from pydantic import BaseModel, Field
 
+# CrewAI optional: provide a minimal BaseTool shim if not installed
+try:
+    from crewai.tools import BaseTool  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    class BaseTool:  # minimal shim
+        name: str = "BaseTool"
+        description: str = ""
 
-from crewai.tools import BaseTool
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def _run(self, *args, **kwargs):
+            raise NotImplementedError("BaseTool shim: _run not implemented")
+
+        async def _arun(self, *args, **kwargs):
+            raise NotImplementedError("BaseTool shim: _arun not implemented")
 
 # The Pydantic ...Input classes are no longer needed for native CrewAI tools.
 # CrewAI infers arguments from the type hints in the `_run` method signature.
@@ -22,7 +35,24 @@ class WebsiteSummarizerTool(BaseTool):
             from ai_tools.ai_doc_webpage_summarizer import WebPageSummarizer
 
             web_summarizer_instance = WebPageSummarizer()
-            result = web_summarizer_instance.summarize_website(
+            # WebPageSummarizer.summarize_website is async; run in thread-safe loop
+            result = asyncio.run(
+                web_summarizer_instance.summarize_website(
+                    url, question, summary_length="detailed"
+                )
+            )
+            summary = result.get("summary", "No summary available.")
+            keywords = result.get("keywords", [])
+            return json.dumps({"summary": summary, "keywords": keywords})
+        except Exception as e:
+            return json.dumps({"error": f"Error summarizing website: {str(e)}"})
+
+    async def _arun(self, url: str, question: str) -> str:
+        try:
+            from ai_tools.ai_doc_webpage_summarizer import WebPageSummarizer
+
+            web_summarizer_instance = WebPageSummarizer()
+            result = await web_summarizer_instance.summarize_website(
                 url, question, summary_length="detailed"
             )
             summary = result.get("summary", "No summary available.")
@@ -42,11 +72,27 @@ class WebPageResearcherTool(BaseTool):
     def _run(self, category: str, question: str) -> str:
         """Runs the tool synchronously."""
         try:
-            from ai_tools.ai_webpage_research_agent import AIWebPageResearchAgent
+            from ai_tools.ai_webpage_research_agent import \
+                AIWebPageResearchAgent
 
             web_researcher_instance = AIWebPageResearchAgent()
             web_researcher_instance.setup_research(category)
             response = web_researcher_instance.process_chat(question)
+            return json.dumps({"research_result": response})
+        except Exception as e:
+            return json.dumps({"error": f"Error performing web research: {str(e)}"})
+
+    async def _arun(self, category: str, question: str) -> str:
+        try:
+            from ai_tools.ai_webpage_research_agent import \
+                AIWebPageResearchAgent
+
+            web_researcher_instance = AIWebPageResearchAgent()
+            web_researcher_instance.setup_research(category)
+            # process_chat is sync; run in thread to avoid blocking loop
+            response = await asyncio.to_thread(
+                web_researcher_instance.process_chat, question
+            )
             return json.dumps({"research_result": response})
         except Exception as e:
             return json.dumps({"error": f"Error performing web research: {str(e)}"})

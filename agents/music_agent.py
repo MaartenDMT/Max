@@ -1,6 +1,6 @@
 from ai_tools.ai_music_generation import (
-    MusicLoopGenerator,
-)  # Assuming this is the tool we just created
+    MusicLoopGenerator,  # Assuming this is the tool we just created
+)
 
 
 class MusicCreationAgent:
@@ -17,10 +17,41 @@ class MusicCreationAgent:
         # Parse the user input to extract key parameters (e.g., BPM, genre, duration)
         prompt, bpm, duration = self.parse_user_input(user_input)
 
+        # Validate extracted parameters
+        if not prompt or not prompt.strip():
+            return {
+                "status": "error",
+                "message": "Missing or invalid prompt/genre in request.",
+            }
+        if bpm is None or not isinstance(bpm, int) or bpm < 40 or bpm > 240:
+            return {
+                "status": "error",
+                "message": "BPM must be an integer between 40 and 240.",
+            }
+
         if prompt and bpm:
             # Use the MusicLoopGenerator tool to generate the loop
             # Ensure duration is an integer, default to 30 if None
-            actual_duration = duration if duration is not None else 30
+            if duration is None:
+                actual_duration = 30
+            else:
+                # clamp duration into safe bounds
+                try:
+                    actual_duration = int(duration)
+                except Exception:
+                    actual_duration = 30
+                actual_duration = max(5, min(actual_duration, 300))
+
+            # If the underlying generator is unavailable (optional dependency missing), fail fast
+            try:
+                generator_available = getattr(self.loop_generator, "model", None) is not None
+            except Exception:
+                generator_available = False
+            if not generator_available:
+                return {
+                    "status": "error",
+                    "message": "Music generator is unavailable (optional dependency missing).",
+                }
             loop_file = self.loop_generator.generate_loop(
                 prompt=prompt, bpm=bpm, duration=actual_duration
             )
@@ -45,16 +76,30 @@ class MusicCreationAgent:
         """
         import re
 
-        # Define a regex pattern to extract BPM, prompt (genre), and duration from the user input
-        pattern = r"(?P<bpm>\d+)\s*BPM\s*(?P<prompt>[a-zA-Z\s]+)\s*(?:for\s*(?P<duration>\d+)\s*seconds)?"
+        if not isinstance(user_input, str) or not user_input.strip():
+            return None, None, None
+
+        # Case-insensitive, non-greedy prompt; stop before 'for <n> seconds' if present
+        pattern = (
+            r"(?i)"  # case-insensitive
+            r"(?P<bpm>\d+)\s*bpm\s*"
+            r"(?P<prompt>[a-z0-9\s,\-/'&()\.]+?)(?=\s+for\s+\d+\s*seconds?\b|$)"
+            r"(?:\s+for\s+(?P<duration>\d+)\s*seconds?\b)?"
+        )
         match = re.search(pattern, user_input)
 
         if match:
-            bpm = int(match.group("bpm"))
-            prompt = match.group("prompt").strip()
-            duration = (
-                int(match.group("duration")) if match.group("duration") else 30
-            )  # Default duration to 30 seconds
+            try:
+                bpm = int(match.group("bpm"))
+            except Exception:
+                bpm = None
+            prompt = (match.group("prompt") or "").strip()
+            try:
+                duration = (
+                    int(match.group("duration")) if match.group("duration") else 30
+                )
+            except Exception:
+                duration = 30
             return prompt, bpm, duration
         else:
             return None, None, None

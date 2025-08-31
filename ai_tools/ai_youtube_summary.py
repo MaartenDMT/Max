@@ -1,19 +1,17 @@
-import os
 import asyncio  # Import asyncio for to_thread
-from langchain_ollama import ChatOllama
+import os
+
+try:
+    from langchain_ollama import ChatOllama  # optional
+except Exception:  # pragma: no cover - optional dependency
+    ChatOllama = None
+from utils.common.shared_summarize_utils import (clean_title, create_chain,
+                                                 download_audio,
+                                                 get_video_info, meta_data,
+                                                 process_chat, save_md,
+                                                 save_text, split_text,
+                                                 transcribe_audio)
 from utils.loggers import LoggerSetup
-from utils.common.shared_summarize_utils import (
-    get_video_info,
-    clean_title,
-    download_audio,
-    transcribe_audio,
-    split_text,
-    create_chain,
-    process_chat,
-    save_md,
-    save_text,
-    meta_data,
-)
 
 MAX_CHUNK_SIZE = 2048
 
@@ -27,7 +25,11 @@ class YouTubeSummarizer:
         self.output_path = output_path
         self.audio_filename = os.path.join(self.download_path, "audio.wav")
 
-        self.llm = ChatOllama(model="llama3.1", temperature=0.2, num_predict=-1)
+        self.llm = (
+            ChatOllama(model="llama3.1", temperature=0.2, num_predict=-1)
+            if ChatOllama is not None
+            else None
+        )
 
         log_setup = LoggerSetup()
         self.logger = log_setup.get_logger(
@@ -139,4 +141,5 @@ class YouTubeSummarizer:
             }
         finally:
             if await asyncio.to_thread(os.path.exists, self.audio_filename):
+                await asyncio.to_thread(os.remove, self.audio_filename)
                 await asyncio.to_thread(os.remove, self.audio_filename)

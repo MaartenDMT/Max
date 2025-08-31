@@ -1,21 +1,15 @@
+import asyncio  # Import asyncio for to_thread
 import os
 import tempfile
-import time
-import logging
-import asyncio  # Import asyncio for to_thread
 
-import requests
+import httpx
 import spacy
 import validators
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import (
-    PyMuPDFLoader,
-    PyPDFLoader,
-    WebBaseLoader,
-)
+from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.llms.ollama import Ollama
 from langchain_community.vectorstores import Chroma
@@ -45,14 +39,13 @@ class WebPageSummarizer:
             raise ValueError(f"Invalid URL: {url}")
 
         try:
-            response = await asyncio.to_thread(
-                requests.head, url, allow_redirects=True, timeout=5
-            )
+            async with httpx.AsyncClient(follow_redirects=True, timeout=5) as client:
+                response = await client.head(url)
             if response.status_code >= 400:
                 raise ValueError(
                     f"URL is not accessible, status code: {response.status_code}"
                 )
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             raise ValueError(f"Error accessing URL: {e}")
 
     def validate_question(self, question):
@@ -66,12 +59,12 @@ class WebPageSummarizer:
         while attempts < self.max_retries:
             try:
                 return await func(*args, **kwargs)
-            except requests.RequestException as e:
+            except (httpx.HTTPError, TimeoutError) as e:
                 attempts += 1
                 self.logger.warning(
                     f"Attempt {attempts} failed: {e}. Retrying in {self.retry_delay ** attempts} seconds..."
                 )
-                await asyncio.sleep(self.retry_delay**attempts)
+                await asyncio.sleep(self.retry_delay ** attempts)
         self.logger.error(
             f"Failed after {self.max_retries} attempts to call {func.__name__}."
         )
@@ -99,17 +92,16 @@ class WebPageSummarizer:
     async def _determine_content_type(self, url):
         """Determine the content type of the URL asynchronously."""
         try:
-            response = await asyncio.to_thread(
-                requests.head, url, allow_redirects=True, timeout=5
-            )
-            content_type = response.headers.get("Content-Type", "")
+            async with httpx.AsyncClient(follow_redirects=True, timeout=5) as client:
+                response = await client.head(url)
+            content_type = response.headers.get("content-type", "")
             if "text/html" in content_type:
                 return "html"
             elif "application/pdf" in content_type:
                 return "pdf"
             else:
                 return None
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             raise ValueError(f"Failed to determine content type: {e}")
 
     async def _load_html(self, url):
@@ -124,8 +116,9 @@ class WebPageSummarizer:
 
     async def _load_pdf(self, url):
         """Load and process a PDF document from the URL asynchronously."""
-        response = await asyncio.to_thread(requests.get, url)
-        response.raise_for_status()
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            response = await client.get(url)
+            response.raise_for_status()
 
         self.logger.info("Loading PDF from %s", url)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
@@ -200,11 +193,10 @@ class WebPageSummarizer:
         """Extract keywords from the summarized text asynchronously."""
         self.logger.info("Extracting keywords from the summarized text.")
         doc = await asyncio.to_thread(self.nlp, text)
-        keywords = [token.text for token in doc if token.is_alpha and not token.is_stop]
+        tokens = [token.text for token in doc if token.is_alpha and not token.is_stop]
         vectorizer = TfidfVectorizer(max_features=num_keywords)
-        X = await asyncio.to_thread(vectorizer.fit_transform, [" ".join(keywords)])
-        keywords = vectorizer.get_feature_names_out()
-        return keywords
+        await asyncio.to_thread(vectorizer.fit_transform, [" ".join(tokens)])
+        return list(vectorizer.get_feature_names_out())
 
     async def summarize_website(self, url, question, summary_length="detailed"):
         """Main method to summarize a website with advanced features asynchronously."""

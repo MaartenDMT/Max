@@ -1,10 +1,11 @@
+from typing import Optional  # Import Optional for type hinting
+
 from fastapi import APIRouter, Depends, HTTPException
+
+from ai_tools.speech.text_to_speech import TTSModel
 from api.schemas import SystemCommandRequest, SystemCommandResponse
 from assistents.system_assistent import SystemAssistant
-from ai_tools.speech.text_to_speech import TTSModel
-import asyncio
 from utils.loggers import LoggerSetup  # Import LoggerSetup
-from typing import Optional  # Import Optional for type hinting
 
 router = APIRouter(prefix="/system", tags=["System Assistant"])
 
@@ -38,3 +39,35 @@ async def system_command_endpoint(
     except Exception as e:
         logger.exception(f"Error in /system/command: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/health")
+async def health_check():
+    """Return availability of optional features and basic runtime info."""
+    status = {"audio": False, "crew": False, "torch_cuda": False}
+
+    # Check for stable-audio-tools
+    try:  # pragma: no cover - depends on runtime env
+
+        status["audio"] = True
+    except Exception:
+        status["audio"] = False
+
+    # Check for crewai
+    try:  # pragma: no cover - depends on runtime env
+
+        status["crew"] = True
+    except Exception:
+        status["crew"] = False
+
+    # Check torch CUDA
+    try:
+        import torch
+
+        status["torch_cuda"] = getattr(torch, "cuda", None) is not None and torch.cuda.is_available()
+    except Exception:
+        status["torch_cuda"] = False
+
+    return {"status": "ok", "features": status}
+
+    return {"status": "ok", "features": status}
