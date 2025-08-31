@@ -7,3 +7,4 @@ flagged
 .gemini/
 gha-creds-*.json
 .venv*
+.github
