@@ -30,6 +30,7 @@ def get_system_commands(system_assistant):
         "set alarm": system_assistant._set_alarm_api,
         "take screenshot": system_assistant._take_screenshot_api,
         "calculate": system_assistant._calculate_api,
+        "help": lambda query: print("Available commands: time, open edge, what is your name, play, joke, volume up/down, mute, shutdown system, restart system, lock screen, sleep system, open app, open file, delete file, create folder, move file, battery status, cpu usage, memory usage, disk space, weather, set alarm, take screenshot, calculate, summarize youtube, summarize website, music loop, research topic, critique text, reflect on text, casual chat, professional chat, creative brainstorm, analytical analysis, chat with, exit chat, write book, write story, create story")
     }
 
 
@@ -47,6 +48,7 @@ def get_ai_commands(ai_assistant):
         "creative brainstorm": lambda query: ai_assistant.set_llm_mode("creative"),
         "analytical analysis": lambda query: ai_assistant.set_llm_mode("analytical"),
         "chat with": ai_assistant._start_conversation_mode,  # Start conversation with chatbot
+        "exit chat": lambda query: ai_assistant.set_llm_mode(None),  # Exit conversation mode
         "write book": ai_assistant._handle_writer_task_api,  # Call the writer assistant to handle book writing
         "write story": ai_assistant._handle_writer_task_api,
         "create story": ai_assistant._handle_writer_task_api,

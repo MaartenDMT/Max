@@ -83,9 +83,11 @@ class AIAssistant:
         return ""
 
     def set_llm_mode(self, mode=None) -> dict:
-        """Set the LLM mode in ChatbotAgent (e.g., critique, reflecting)."""
+        """Set the LLM mode in ChatbotAgent (e.g., critique, reflecting, casual, professional, etc.)."""
         self.llm_mode = mode
-        if mode in ["critique", "reflecting"]:
+        # List of supported modes
+        supported_modes = ["critique", "reflecting", "casual", "professional", "creative", "analytical"]
+        if mode in supported_modes:
             self._load_agent("chatbot")
             self.logger.info(f"{mode.capitalize()} mode enabled via ChatbotAgent.")
             return {
@@ -95,7 +97,7 @@ class AIAssistant:
         else:
             self.llm_mode = None
             self.logger.info("Invalid mode selected, no LLM mode enabled.")
-            return {"status": "error", "message": "Invalid mode selected."}
+            return {"status": "error", "message": f"Invalid mode selected. Supported modes: {', '.join(supported_modes)}"}
 
     # API-compatible methods for each functionality
 
@@ -171,6 +173,30 @@ class AIAssistant:
         except Exception as e:
             self.logger.error(f"Error setting conversation mode: {str(e)}")
             return {"status": "error", "message": f"Error setting conversation mode: {str(e)}"}
+
+    async def _process_conversation_input(self, user_input: str) -> dict:
+        """Process user input when in conversation mode."""
+        try:
+            if not self.llm_mode:
+                return {"error": "No conversation mode set. Use 'chat with [mode]' first."}
+            
+            # Get chatbot agent using lazy loading
+            chatbot_agent = self._load_agent("chatbot")
+            if chatbot_agent is None:
+                return {"error": "Failed to load chatbot agent"}
+            
+            # Process the conversation
+            result = await chatbot_agent.process_conversation_mode(
+                self.llm_mode, user_input, []
+            )
+            
+            if "error" in result:
+                return {"error": result["error"]}
+            
+            return {"result": result["result"]}
+        except Exception as e:
+            self.logger.error(f"Error processing conversation input: {str(e)}")
+            return {"error": f"Error processing conversation input: {str(e)}"}
 
     async def _summarize_youtube_api(self, video_url: str) -> dict:
         """Handle YouTube summarization task asynchronously for API."""
