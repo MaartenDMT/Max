@@ -23,6 +23,7 @@ class BaseChatMode:
         """Initialize with a specific system prompt."""
         self.model = llm_manager.get_llm()
         self.system_prompt = system_prompt
+        # Create a ChatPromptTemplate to use the system prompt and handle history.
         self.prompt_template = ChatPromptTemplate.from_messages([
             ("system", self.system_prompt),
             MessagesPlaceholder(variable_name="chat_history"),
@@ -31,11 +32,16 @@ class BaseChatMode:
 
     async def _handle_query(self, user_input, chat_history):
         """Handle the user's query with the specific mode's approach."""
-        input_message = {"input": user_input, "chat_history": chat_history}
+        input_message = [
+            HumanMessage(content=user_input),
+        ]
         
         # Get the AI response asynchronously
         model = self.model
         if model is None:
             return "Test mode response"
         response = await model.ainvoke(input_message)
+        # If response contains AIMessage, extract the content
+        if isinstance(response, AIMessage):
+            return response.content
         return response.get("output", str(response)) if isinstance(response, dict) else str(response)

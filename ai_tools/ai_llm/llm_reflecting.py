@@ -3,10 +3,18 @@ import asyncio
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
-try:
-    from langchain_ollama.chat_models import ChatOllama  # optional
-except Exception:  # pragma: no cover - optional dep
-    ChatOllama = None
+from utils.llm_manager import LLMManager, LLMConfig # Added LLMConfig import
+from decouple import config as decouple_config
+
+llm_config_data = {
+    "llm_provider": decouple_config("LLM_PROVIDER", default="ollama"),
+    "anthropic_api_key": decouple_config("ANTHROPIC_API_KEY", default=None),
+    "openai_api_key": decouple_config("OPENAI_API_KEY", default=None),
+    "openrouter_api_key": decouple_config("OPENROUTER_API_KEY", default=None),
+    "gemini_api_key": decouple_config("GEMINI_API_KEY", default=None),
+}
+llm_manager = LLMManager(LLMConfig(**llm_config_data)) # Instantiate LLMConfig
+
 
 system_prompt = """
 You are an AI assistant designed to provide detailed, step-by-step response. You outputs should follow this structure:
@@ -39,15 +47,8 @@ class ReflectingLLM:
     """AI agent designed to provide detailed, step-by-step responses."""
 
     def __init__(self):
-        """Initialize ReflectingAgent with ChatOllama."""
-        self.model = ChatOllama(
-            model="llama3.1",  # Use the latest version of the model
-            temperature=0.2,  # Keep the temperature low for precision
-            num_predict=-1,  # Higher tokens for detailed reflection
-            top_p=0.9,  # Balanced sampling diversity
-            frequency_penalty=0.5,  # Reduce token repetition
-            presence_penalty=0.3,  # Encourage introducing new concepts
-        ) if ChatOllama is not None else None
+        """Initialize ReflectingAgent."""
+        self.model = llm_manager.get_llm()
 
         # Create a ChatPromptTemplate to use the system prompt and handle history.
         self.prompt_template = ChatPromptTemplate.from_messages(
@@ -60,14 +61,19 @@ class ReflectingLLM:
 
     async def _handle_query(self, user_input, chat_history):
         """Handle the user's query and reflect on the reasoning process."""
-        # Prepare the input for the model using the prompt template
-        input_message = {"input": user_input, "chat_history": chat_history}
+        input_message = [
+            HumanMessage(content=user_input),
+        ]
 
         # Get the AI response asynchronously
-        if self.model is None:
-            return "<thinking>Test mode</thinking>\n<reflection>OK</reflection>\n<output>OK</output>"
-        response = await self.model.ainvoke(input_message)
-        return response.get("output", str(response))
+        model = self.model  # This triggers lazy loading
+        if model is None:
+            return "<thinking>Test mode</thinking>\n<reflection>OK</reflection>\n<o>OK</o>"
+        response = await model.ainvoke(input_message)
+        # If response contains AIMessage, extract the content
+        if isinstance(response, AIMessage):
+            return response.content
+        return response.get("output", str(response)) if isinstance(response, dict) else str(response)
 
     async def run(self):
         """Run the ReflectingAgent and process user queries."""
