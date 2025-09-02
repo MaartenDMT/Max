@@ -35,7 +35,7 @@ class VideoProcessingAgent:
         else:
             return None
 
-    def process_user_request(self, video_url: str) -> dict:
+    async def process_user_request(self, video_url: str) -> dict:
         """
         Main method for processing user requests.
         Takes in a video URL (YouTube or Rumble), checks if it is valid, and performs summarization.
@@ -58,15 +58,22 @@ class VideoProcessingAgent:
         try:
             platform = "YouTube" if self.is_youtube_url(video_url) else "Rumble"
             # print(f"Processing {platform} video: {video_url}") # Removed print statement
-            full_text, summary = summarizer.summarize(video_url)
+            result = await summarizer.summarize(video_url)
 
-            if full_text is not None and summary is not None:
-                return {"status": "success", "full_text": full_text, "summary": summary}
+            # Check if the result is successful
+            if result.get("status") == "success":
+                return {
+                    "status": "success",
+                    "full_text": result.get("full_text"),
+                    "summary": result.get("summary"),
+                    "summary_file": result.get("summary_file"),
+                }
             else:
+                # Return the error message from the summarizer
                 return {
                     "status": "error",
-                    "message": summary,
-                }  # summary will contain error message if full_text is None
+                    "message": result.get("message", "Summarization failed."),
+                }
 
         except Exception as e:
             return {
@@ -74,7 +81,7 @@ class VideoProcessingAgent:
                 "message": f"An error occurred while processing the video: {str(e)}",
             }
 
-    def handle_user_input(self, user_input: str) -> dict:
+    async def _handle_user_input_async(self, user_input: str) -> dict:
         """
         This method receives user input and determines if a YouTube or Rumble URL was given.
         If so, it calls process_user_request to summarize the video.
@@ -90,12 +97,62 @@ class VideoProcessingAgent:
             or "youtu.be" in user_input
             or "rumble.com" in user_input
         ):
-            return self.process_user_request(user_input)
+            return await self.process_user_request(user_input)
         else:
             return {
                 "status": "error",
                 "message": "I can only summarize YouTube or Rumble videos at the moment. Please provide a valid URL.",
             }
+
+    def handle_user_input(self, user_input: str) -> dict:
+        """Synchronous wrapper for compatibility in tools/tests.
+        Ensures a concrete dict is returned even when called from within an async test.
+        """
+        import asyncio
+        import threading
+
+        # Detect if we're already inside a running event loop
+        try:
+            asyncio.get_running_loop()
+            running = True
+        except RuntimeError:
+            running = False
+
+        if not running:
+            # Use a dedicated event loop synchronously
+            loop = asyncio.new_event_loop()
+            try:
+                asyncio.set_event_loop(loop)
+                return loop.run_until_complete(self._handle_user_input_async(user_input))
+            finally:
+                asyncio.set_event_loop(None)
+                loop.close()
+
+        # If an event loop is already running (e.g., pytest-asyncio), run the coroutine in a separate thread
+        result_holder: dict = {}
+        error_holder: dict = {}
+
+        def _runner():
+            try:
+                # Create an isolated loop for the coroutine
+                loop = asyncio.new_event_loop()
+                try:
+                    asyncio.set_event_loop(loop)
+                    res = loop.run_until_complete(self._handle_user_input_async(user_input))
+                    result_holder["result"] = res
+                finally:
+                    asyncio.set_event_loop(None)
+                    loop.close()
+            except Exception as e:  # pragma: no cover
+                error_holder["error"] = e
+
+        t = threading.Thread(target=_runner, daemon=True)
+        t.start()
+        t.join()
+
+        if error_holder:
+            return {"status": "error", "message": str(error_holder["error"]) }
+        return result_holder.get("result", {"status": "error", "message": "Unknown error"})
 
 
 # Example usage (removed interactive parts for API readiness)
