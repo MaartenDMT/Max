@@ -8,6 +8,7 @@ from agents.orchestrator_agent import OrchestratorAgent
 from agents.research_agent import AIResearchAgent
 from agents.video_agent import VideoProcessingAgent
 from ai_tools.agent_tools import BookWriterTool, StoryWriterTool
+from ai_tools.speech.speech_to_text import TranscribeFastModel # Added import
 
 # Import the necessary BaseTools directly
 from ai_tools.crew_tools import WebPageResearcherTool, WebsiteSummarizerTool
@@ -19,8 +20,11 @@ from utils.loggers import LoggerSetup
 
 class AIAssistant:
     def __init__(self, tts_model, transcribe, speak, listen):
-        self.transcribe = transcribe
-        self.tts_model = tts_model
+        # Lazy load TTS and transcribe models only when needed
+        self._tts_model_instance = None
+        self._transcribe_instance = None
+        self._tts_model_factory = tts_model
+        self._transcribe_factory = transcribe
 
         # These will be placeholders for API context
         self._speak = speak
@@ -33,8 +37,12 @@ class AIAssistant:
             "youtube_summaries": [],
         }
 
-        # Initialize OrchestratorAgent
-        self.orchestrator_agent = OrchestratorAgent()
+        # Lazy initialize agent instances
+        self._orchestrator_agent = None
+        self._youtube_agent = None
+        self._music_agent = None
+        self._research_agent = None
+        self._chatbot_agent = None
 
         # Setup logger
         log_setup = LoggerSetup()
@@ -44,7 +52,25 @@ class AIAssistant:
         self.llm_mode = None
 
         # Log initialization
-        self.logger.info("AI Assistant initialized.")
+        self.logger.info("AI Assistant initialized with lazy loading.")
+
+    def _get_tts_model(self):
+        """Lazy load the TTS model when first needed"""
+        if self._tts_model_instance is None:
+            self.logger.info("Lazy loading TTS model")
+            self._tts_model_instance = self._tts_model_factory()
+        return self._tts_model_instance
+
+    def _get_transcribe(self):
+        """Lazy load the transcribe model when first needed"""
+        if self._transcribe_instance is None:
+            self.logger.info("Lazy loading transcribe model")
+            # If transcribe_factory is already an instance, use it directly
+            if isinstance(self._transcribe_factory, TranscribeFastModel):
+                self._transcribe_instance = self._transcribe_factory
+            else:
+                self._transcribe_instance = self._transcribe_factory()
+        return self._transcribe_instance
 
     # Placeholder for speak in API context
     async def _speak_api(self, message: str):
@@ -78,8 +104,12 @@ class AIAssistant:
     ) -> dict:
         """Handle chatbot-related tasks for API."""
         try:
-            self._load_agent("chatbot")
-            result = await self.chatbot_agent.process_with_current_mode(
+            # Get chatbot agent using lazy loading
+            chatbot_agent = self._load_agent("chatbot")
+            if chatbot_agent is None:
+                return {"error": "Failed to load chatbot agent"}
+
+            result = await chatbot_agent.process_with_current_mode(
                 mode, summary, full_text
             )
             return {"result": result.get("result"), "error": result.get("error")}
@@ -95,11 +125,13 @@ class AIAssistant:
                 return {"status": "error", "message": "No valid YouTube URL provided."}
 
             self.logger.info(f"Received YouTube URL: {video_url}")
-            self._load_agent("youtube")
+            # Get youtube agent using lazy loading
+            youtube_agent = self._load_agent("youtube")
+            if youtube_agent is None:
+                return {"status": "error", "message": "Failed to load YouTube agent"}
 
-            result = await asyncio.to_thread(
-                self.youtube_agent.handle_user_input, video_url
-            )
+            # Call the async method directly to avoid issues with awaiting a sync method
+            result = await youtube_agent._handle_user_input_async(video_url)
 
             # Ensure result is a dictionary before proceeding
             if not isinstance(result, dict):
@@ -116,9 +148,13 @@ class AIAssistant:
                 summary = str(result.get("summary", ""))  # Ensure string
 
                 if self.llm_mode is not None:
-                    self._load_agent("chatbot")
+                    # Get chatbot agent using lazy loading
+                    chatbot_agent = self._load_agent("chatbot")
+                    if chatbot_agent is None:
+                        return {"status": "error", "message": "Failed to load chatbot agent"}
+
                     critique_result = (
-                        await self.chatbot_agent.process_with_current_mode(
+                        await chatbot_agent.process_with_current_mode(
                             self.llm_mode, summary, full_text
                         )
                     )
@@ -269,7 +305,9 @@ class AIAssistant:
                 }
 
             self.logger.info(f"Music loop request with prompt: {prompt} and BPM: {bpm}")
-            self._load_agent("music")
+            music_agent = self._load_agent("music")
+            if music_agent is None:
+                return {"status": "error", "message": "Failed to load music agent"}
 
             # Ensure duration is an int, default to 30 if None (as per schema default)
             actual_duration = duration if duration is not None else 30
@@ -277,7 +315,7 @@ class AIAssistant:
                 f"Generate a {bpm} BPM {prompt} loop for {actual_duration} seconds"
             )
             output = await asyncio.to_thread(
-                self.music_agent.handle_user_request, user_input_for_music_agent
+                music_agent.handle_user_request, user_input_for_music_agent
             )
 
             if output.get("status") == "success":
@@ -309,9 +347,12 @@ class AIAssistant:
                 return {"status": "error", "message": "No research query provided."}
 
             self.logger.info(f"Research query: {query}")
-            self._load_agent("research")
+            # Get research agent using lazy loading
+            research_agent = self._load_agent("research")
+            if research_agent is None:
+                return {"status": "error", "message": "Failed to load research agent"}
 
-            research_result = await self.research_agent.handle_research(query)
+            research_result = await research_agent.handle_research(query)
 
             if research_result.get("status") == "success":
                 self.logger.info(f"Research result: {research_result.get('result')}")
@@ -343,7 +384,11 @@ class AIAssistant:
             self.logger.info("Text summarization request received.")
             self._load_agent("research")
 
-            summary_result = await self.research_agent.handle_text_summarization(
+            research_agent = self._load_agent("research")
+            if research_agent is None:
+                return {"status": "error", "message": "Failed to load research agent"}
+
+            summary_result = await research_agent.handle_text_summarization(
                 text_to_summarize
             )
 
@@ -437,21 +482,36 @@ class AIAssistant:
 
     def _load_agent(self, agent_type):
         """Load the specific agent when it's first needed."""
-        if agent_type == "youtube" and not hasattr(self, "youtube_agent"):
-            self.youtube_agent = VideoProcessingAgent(self.transcribe)
-            self.logger.info("YouTube agent loaded.")
-        # Removed: elif agent_type == "website" and not hasattr(self, "web_agent"):
-        # Removed:     self.web_agent = WebsiteProcessingAgent()
-        # Removed:     self.logger.info("Website agent loaded.")
-        elif agent_type == "music" and not hasattr(self, "music_agent"):
-            self.music_agent = MusicCreationAgent()
-            self.logger.info("Music agent loaded.")
-        elif agent_type == "research" and not hasattr(self, "research_agent"):
-            self.research_agent = AIResearchAgent()
-            self.logger.info("AIResearchAgent loaded.")
-        elif agent_type == "chatbot" and not hasattr(self, "chatbot_agent"):
-            self.chatbot_agent = ChatbotAgent()  # Load ChatbotAgent
-            self.logger.info("ChatbotAgent loaded.")
-        # Removed: elif agent_type == "writer assistent" and not hasattr(self, "writer_agent"):
-        # Removed:     self.writer_agent = AIWriterAgent(speak=lambda x: x)
-        # Removed:     self.logger.info("AIWriterAssistant loaded.")
+        try:
+            if agent_type == "youtube":
+                if self._youtube_agent is None:
+                    # Lazy load transcribe model if needed
+                    self._youtube_agent = VideoProcessingAgent(self._get_transcribe())
+                    self.logger.info("YouTube agent loaded on demand.")
+                return self._youtube_agent
+            elif agent_type == "music":
+                if self._music_agent is None:
+                    self._music_agent = MusicCreationAgent()
+                    self.logger.info("Music agent loaded on demand.")
+                return self._music_agent
+            elif agent_type == "research":
+                if self._research_agent is None:
+                    self._research_agent = AIResearchAgent()
+                    self.logger.info("Research agent loaded on demand.")
+                return self._research_agent
+            elif agent_type == "chatbot":
+                if self._chatbot_agent is None:
+                    self._chatbot_agent = ChatbotAgent()  # Load ChatbotAgent
+                    self.logger.info("ChatbotAgent loaded on demand.")
+                return self._chatbot_agent
+            elif agent_type == "orchestrator":
+                if self._orchestrator_agent is None:
+                    self._orchestrator_agent = OrchestratorAgent()
+                    self.logger.info("OrchestratorAgent loaded on demand.")
+                return self._orchestrator_agent
+            else:
+                self.logger.error(f"Unknown agent type: {agent_type}")
+                return None
+        except Exception as e:
+            self.logger.error(f"Error loading agent {agent_type}: {str(e)}")
+            return None
