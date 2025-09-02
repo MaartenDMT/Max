@@ -5,6 +5,10 @@ from langchain_core.messages import AIMessage
 
 from ai_tools.ai_llm.llm_critique import CritiqueLLM
 from ai_tools.ai_llm.llm_reflecting import ReflectingLLM
+from ai_tools.ai_llm.llm_casual import CasualMode
+from ai_tools.ai_llm.llm_professional import ProfessionalMode
+from ai_tools.ai_llm.llm_creative import CreativeMode
+from ai_tools.ai_llm.llm_analytical import AnalyticalMode
 
 
 class ChatbotAgent:
@@ -12,22 +16,43 @@ class ChatbotAgent:
         """
         Initialize the agent with multiple LLM tools.
         The LLMs are stored in a dictionary, making it easy to add more models in the future.
+        Uses lazy loading to only instantiate models when needed.
         """
 
-        # Registry to store all available LLMs
-        self.llm = {}
+        # Registry to store all available LLM factory functions
+        self.llm_factories = {}
+        self.llm_instances = {}
 
-        # Add Critique and Reflecting AI agents to the registry
-        self.add_llm("reflecting", ReflectingLLM())
-        self.add_llm("critique", CritiqueLLM())
+        # Register LLM factory functions
+        self.register_llm("reflecting", ReflectingLLM)
+        self.register_llm("critique", CritiqueLLM)
+        self.register_llm("casual", CasualMode)
+        self.register_llm("professional", ProfessionalMode)
+        self.register_llm("creative", CreativeMode)
+        self.register_llm("analytical", AnalyticalMode)
 
-    def add_llm(self, name, model):
+    def register_llm(self, name, model_class):
         """
-        Add a new LLM model to the registry.
+        Register a new LLM model factory to the registry.
         :param name: The mode name (e.g., 'reflecting', 'critique')
-        :param model: The model instance (e.g., ReflectingLLM, CritiqueLLM)
+        :param model_class: The model class (e.g., ReflectingLLM, CritiqueLLM)
         """
-        self.llm[name] = model
+        self.llm_factories[name] = model_class
+
+    def get_llm(self, name):
+        """
+        Get or create an LLM instance by name.
+        :param name: The mode name (e.g., 'reflecting', 'critique')
+        :return: The model instance, or None if the name is invalid
+        """
+        if name not in self.llm_factories:
+            return None
+
+        if name not in self.llm_instances:
+            # Lazy instantiation
+            self.llm_instances[name] = self.llm_factories[name]()
+
+        return self.llm_instances[name]
 
     async def process_with_current_mode(
         self, mode: str, summary: str, full_text: str
@@ -38,16 +63,49 @@ class ChatbotAgent:
         """
         try:
             mode = mode.strip().lower()
-            if mode not in self.llm:
+            if mode not in self.llm_factories:
                 return {
-                    "error": f"Invalid mode selected. Available modes: {', '.join(self.llm.keys())}."
+                    "error": f"Invalid mode selected. Available modes: {', '.join(self.llm_factories.keys())}."
                 }
 
             # Combine both summary and full text for critique
-            content_for_processing = f"Summary:\n{summary}\n\nFull Text:\n{full_text}"
+            content_for_processing = f"Summary:
+{summary}
 
-            # Pass the combined content to the appropriate LLM
-            response = await self.llm[mode]._handle_query(content_for_processing, [])
+Full Text:
+{full_text}"
+
+            # Get the appropriate LLM (lazy loaded) and pass the content
+            llm = self.get_llm(mode)
+            response = await llm._handle_query(content_for_processing, [])
+
+            # If the response is an AIMessage, extract the content
+            if isinstance(response, AIMessage):
+                return {"result": response.content}
+            return {"result": str(response)}
+        except Exception as e:
+            return {"error": f"Error processing mode: {str(e)}"}
+
+    async def process_conversation_mode(
+        self, mode: str, user_input: str, chat_history: list = None
+    ) -> dict:
+        """
+        Process a conversation using the specified LLM mode.
+        Returns a dictionary with the result or an error.
+        """
+        try:
+            mode = mode.strip().lower()
+            if mode not in self.llm_factories:
+                return {
+                    "error": f"Invalid mode selected. Available modes: {', '.join(self.llm_factories.keys())}."
+                }
+
+            if chat_history is None:
+                chat_history = []
+
+            # Get the appropriate LLM (lazy loaded) and pass the content
+            llm = self.get_llm(mode)
+            response = await llm._handle_query(user_input, chat_history)
 
             # If the response is an AIMessage, extract the content
             if isinstance(response, AIMessage):

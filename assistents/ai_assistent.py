@@ -117,6 +117,61 @@ class AIAssistant:
             self.logger.error(f"Error during chatbot task: {str(e)}")
             return {"error": f"Error during chatbot task: {str(e)}"}
 
+    async def _handle_conversation_api(
+        self, mode: str, user_input: str, chat_history: list = None
+    ) -> dict:
+        """Handle direct conversation with different chatbot modes."""
+        try:
+            # Get chatbot agent using lazy loading
+            chatbot_agent = self._load_agent("chatbot")
+            if chatbot_agent is None:
+                return {"error": "Failed to load chatbot agent"}
+
+            result = await chatbot_agent.process_conversation_mode(
+                mode, user_input, chat_history or []
+            )
+            return {"result": result.get("result"), "error": result.get("error")}
+        except Exception as e:
+            self.logger.error(f"Error during conversation task: {str(e)}")
+            return {"error": f"Error during conversation task: {str(e)}"}
+
+    async def _start_conversation_mode(self, query: str) -> dict:
+        """Start a conversation with the chatbot in the specified mode."""
+        try:
+            # Extract mode from query (e.g., "chat with casual mode" -> "casual")
+            query = query.lower().strip()
+            mode = None
+            
+            # Check for specific modes
+            if "casual" in query:
+                mode = "casual"
+            elif "professional" in query:
+                mode = "professional"
+            elif "creative" in query:
+                mode = "creative"
+            elif "analytical" in query:
+                mode = "analytical"
+            elif "critique" in query:
+                mode = "critique"
+            elif "reflect" in query:
+                mode = "reflecting"
+            else:
+                return {"error": "Please specify a mode: casual, professional, creative, analytical, critique, or reflecting"}
+            
+            # Set the mode and inform the user
+            self.llm_mode = mode
+            self._load_agent("chatbot")
+            self.logger.info(f"{mode.capitalize()} mode enabled via ChatbotAgent.")
+            
+            return {
+                "status": "success",
+                "message": f"Conversation mode set to {mode}. You can now chat with me in this mode.",
+                "mode": mode
+            }
+        except Exception as e:
+            self.logger.error(f"Error setting conversation mode: {str(e)}")
+            return {"status": "error", "message": f"Error setting conversation mode: {str(e)}"}
+
     async def _summarize_youtube_api(self, video_url: str) -> dict:
         """Handle YouTube summarization task asynchronously for API."""
         try:
