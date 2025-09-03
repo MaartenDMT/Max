@@ -30,7 +30,12 @@ def get_system_commands(system_assistant):
         "set alarm": system_assistant._set_alarm_api,
         "take screenshot": system_assistant._take_screenshot_api,
         "calculate": system_assistant._calculate_api,
-        "help": lambda query: print("Available commands: time, open edge, what is your name, play, joke, volume up/down, mute, shutdown system, restart system, lock screen, sleep system, open app, open file, delete file, create folder, move file, battery status, cpu usage, memory usage, disk space, weather, set alarm, take screenshot, calculate, summarize youtube, summarize website, music loop, research topic, critique text, reflect on text, casual chat, professional chat, creative brainstorm, analytical analysis, chat with, exit chat, write book, write story, create story")
+        "system info": system_assistant._get_system_info_api,
+        "network info": system_assistant._get_network_info_api,
+        "process list": system_assistant._get_process_list_api,
+        "search process": system_assistant._search_processes_api,
+        "battery info": system_assistant._get_battery_info_api,
+        "help": lambda query: print("Available commands: time, open edge, what is your name, play, joke, volume up/down, mute, shutdown system, restart system, lock screen, sleep system, open app, open file, delete file, create folder, move file, battery status, cpu usage, memory usage, disk space, weather, set alarm, take screenshot, calculate, system info, network info, process list, search process, battery info, summarize youtube, summarize website, music loop, research topic, critique text, reflect on text, casual chat, professional chat, creative brainstorm, analytical analysis, chat with, exit chat, write book, write story, create story")
     }
 
 

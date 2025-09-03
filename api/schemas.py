@@ -1,7 +1,17 @@
-from typing import Dict, Literal, Optional
+from typing import Dict, Literal, Optional, List, Any, Union
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, validator
 from pydantic.types import conint
+
+# Base Response Models
+class BaseResponse(BaseModel):
+    status: Literal["success", "error"] = Field(..., description="Status of the operation (success/error).")
+    message: Optional[str] = Field(None, description="Status message or error details.")
+
+class ErrorResponse(BaseResponse):
+    status: Literal["error"] = "error"
+    code: Optional[int] = Field(None, description="Error code if applicable")
+    details: Optional[Dict[str, Any]] = Field(None, description="Detailed error information")
 
 # AI Assistant Schemas
 
@@ -10,11 +20,9 @@ class SummarizeYoutubeRequest(BaseModel):
     video_url: HttpUrl = Field(..., description="The video URL to summarize (YouTube or Rumble).")
 
 
-class SummarizeYoutubeResponse(BaseModel):
-    status: str = Field(..., description="Status of the operation (success/error).")
+class SummarizeYoutubeResponse(BaseResponse):
     summary: Optional[str] = Field(None, description="The summarized text.")
     full_text: Optional[str] = Field(None, description="The full transcribed text.")
-    message: Optional[str] = Field(None, description="Error or success message.")
 
 
 class ChatbotRequest(BaseModel):
@@ -23,12 +31,9 @@ class ChatbotRequest(BaseModel):
     full_text: str = Field(..., description="The full text content for processing.")
 
 
-class ChatbotResponse(BaseModel):
+class ChatbotResponse(BaseResponse):
     result: Optional[str] = Field(
         None, description="The result from the chatbot processing."
-    )
-    error: Optional[str] = Field(
-        None, description="Error message if the operation failed."
     )
 
 
@@ -40,14 +45,9 @@ class MusicGenerationRequest(BaseModel):
     duration: Optional[conint(ge=5, le=300)] = Field(30, description="Duration of the loop in seconds (5-300).")
 
 
-class MusicGenerationResponse(BaseModel):
-    status: str = Field(..., description="Status of the operation (success/error).")
-    message: Optional[str] = Field(None, description="Success or error message.")
+class MusicGenerationResponse(BaseResponse):
     file_path: Optional[str] = Field(
         None, description="Path to the generated music file."
-    )
-    error: Optional[str] = Field(
-        None, description="Error message if the operation failed."
     )
 
 
@@ -55,14 +55,10 @@ class ResearchRequest(BaseModel):
     query: str = Field(..., min_length=3, description="The research query (min 3 chars).")
 
 
-class ResearchResponse(BaseModel):
-    status: str = Field(..., description="Status of the operation (success/error).")
+class ResearchResponse(BaseResponse):
     result: Optional[str] = Field(None, description="The research result.")
     summary: Optional[str] = Field(
         None, description="The summarized text (for summarization tasks)."
-    )
-    error: Optional[str] = Field(
-        None, description="Error message if the operation failed."
     )
 
 
@@ -73,13 +69,11 @@ class WebsiteSummarizeRequest(BaseModel):
     )
 
 
-class WebsiteSummarizeResponse(BaseModel):
-    status: str = Field(..., description="Status of the operation (success/error).")
+class WebsiteSummarizeResponse(BaseResponse):
     summary: Optional[str] = Field(None, description="The summarized text.")
-    keywords: Optional[list[str]] = Field(
+    keywords: Optional[List[str]] = Field(
         None, description="Keywords extracted from the summary."
     )
-    message: Optional[str] = Field(None, description="Error or success message.")
 
 
 class WebsiteResearchRequest(BaseModel):
@@ -89,10 +83,8 @@ class WebsiteResearchRequest(BaseModel):
     question: str = Field(..., description="The research question.")
 
 
-class WebsiteResearchResponse(BaseModel):
-    status: str = Field(..., description="Status of the operation (success/error).")
+class WebsiteResearchResponse(BaseResponse):
     research_result: Optional[str] = Field(None, description="The research result.")
-    message: Optional[str] = Field(None, description="Error or success message.")
 
 
 class WriterTaskRequest(BaseModel):
@@ -110,10 +102,8 @@ class WriterTaskRequest(BaseModel):
     )
 
 
-class WriterTaskResponse(BaseModel):
-    status: str = Field(..., description="Status of the operation (success/error).")
+class WriterTaskResponse(BaseResponse):
     output: Optional[str] = Field(None, description="The output of the writing task.")
-    message: Optional[str] = Field(None, description="Error or success message.")
 
 
 # System Assistant Schemas
@@ -129,12 +119,46 @@ class SystemCommandRequest(BaseModel):
     # app_name: Optional[str] = Field(None, description="Name of the application to open.")
 
 
-class SystemCommandResponse(BaseModel):
-    status: str = Field(..., description="Status of the operation (success/error).")
-    message: Optional[str] = Field(
-        None, description="Result or error message of the command."
-    )
-    data: Optional[Dict] = Field(
+class SystemCommandResponse(BaseResponse):
+    data: Optional[Dict[str, Any]] = Field(
         None,
         description="Additional data returned by the command (e.g., battery percentage).",
     )
+
+
+# Orchestrator Schemas
+class OrchestratorRunWorkflowRequest(BaseModel):
+    query: str = Field(..., description="The user's query or prompt.")
+    session_id: Optional[str] = Field("default", description="Optional session ID for conversation memory.")
+
+
+class OrchestratorRunWorkflowResponse(BaseResponse):
+    final_response: Optional[str] = Field(None, description="The final response from the orchestrator.")
+    session_id: Optional[str] = Field(None, description="The session ID associated with the response.")
+
+
+class QueryRequest(BaseModel):
+    query: str = Field(..., description="The user's query or prompt.")
+
+class QueryResponse(BaseResponse):
+    response: Optional[str] = Field(None, description="The AI's response.")
+    timestamp: str = Field(..., description="Timestamp of the response.")
+
+class AnalysisRequest(BaseModel):
+    data: Dict[str, Any] = Field(..., description="Data to be analyzed.")
+    analysis_type: Optional[str] = Field("general", description="Type of analysis to perform.")
+
+class AnalysisResponse(BaseResponse):
+    analysis_result: Optional[Dict[str, Any]] = Field(None, description="Result of the analysis.")
+    analysis_type: Optional[str] = Field(None, description="Type of analysis performed.")
+    timestamp: str = Field(..., description="Timestamp of the analysis.")
+
+class WebsiteRequest(BaseModel):
+    url: HttpUrl = Field(..., description="URL of the website to analyze.")
+    question: Optional[str] = Field(None, description="Specific question about the website content.")
+
+class WebsiteResponse(BaseResponse):
+    summary: Optional[str] = Field(None, description="Summary of the website content.")
+    url: HttpUrl = Field(..., description="URL of the analyzed website.")
+    question: Optional[str] = Field(None, description="Question asked about the website content.")
+    timestamp: str = Field(..., description="Timestamp of the analysis.")

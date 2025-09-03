@@ -8,29 +8,31 @@ except Exception:  # pragma: no cover - optional dependency
     yt_dlp = None
     _YTDLP_AVAILABLE = False
 import datetime
+import logging  # Added import
+from typing import List, Optional, TypedDict  # Added import
 
-try:
-    from langchain.prompts import PromptTemplate  # optional
-except Exception:  # pragma: no cover - optional dependency
-    class PromptTemplate:  # minimal shim for tests
-        def __init__(self, input_variables, template):
-            self.template = template
+import yt_dlp
+from langchain.chains import LLMChain
+from langchain.chains.summarize import load_summarize_chain
+from langchain_core.language_models import BaseLanguageModel  # Added import
+from langchain_core.messages import AIMessage
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import PromptTemplate
 
-        def __or__(self, other):
-            # Compose into a simple callable chain
-            return other
+from ai_tools.speech.speech_to_text import TranscribeFastModel  # Added import
 
-try:
-    from langchain_core.messages import AIMessage  # optional
-except Exception:  # pragma: no cover - optional dependency
-    class AIMessage:  # minimal shim
-        def __init__(self, content):
-            self.content = content
+_YTDLP_AVAILABLE = True # Assuming yt_dlp is always available now
 
 MAX_CHUNK_SIZE = 2048
 
 
-def get_video_info(video_url, logger):
+class VideoInfo(TypedDict):
+    title: str
+    uploader: str
+    # Add other relevant keys from ydl.extract_info if needed
+
+
+def get_video_info(video_url: str, logger: logging.Logger) -> Optional[VideoInfo]:
     """Extract video information."""
     if not _YTDLP_AVAILABLE:
         logger.error("yt_dlp is not installed; cannot extract video info.")
@@ -45,12 +47,12 @@ def get_video_info(video_url, logger):
         return None
 
 
-def clean_title(title):
+def clean_title(title: str) -> str:
     """Remove special characters from a title."""
     return re.sub(r"[^\w\s-]", "", title).strip()
 
 
-def download_audio(video_url, download_path, logger):
+def download_audio(video_url: str, download_path: str, logger: logging.Logger) -> None:
     """Download audio from a video."""
     if not _YTDLP_AVAILABLE:
         logger.error("yt_dlp is not installed; cannot download audio.")
@@ -81,7 +83,7 @@ def download_audio(video_url, download_path, logger):
         return None
 
 
-def transcribe_audio(audio_filepath, transcribe_model, logger):
+def transcribe_audio(audio_filepath: str, transcribe_model: TranscribeFastModel, logger: logging.Logger) -> Optional[str]:
     """Transcribe audio using Whisper."""
     try:
         result = transcribe_model.transcribe(audio_filepath)
@@ -92,7 +94,7 @@ def transcribe_audio(audio_filepath, transcribe_model, logger):
         return None
 
 
-def split_text(text, max_chunk_size=MAX_CHUNK_SIZE):
+def split_text(text: str, max_chunk_size: int = MAX_CHUNK_SIZE) -> List[str]:
     """Split text into manageable chunks."""
     sentences = re.split(r"(?<=[.!?])\s+", text)
     chunks, current_chunk = [], ""
@@ -116,7 +118,7 @@ def split_text(text, max_chunk_size=MAX_CHUNK_SIZE):
     return chunks
 
 
-def create_chain(llm, summary_length="detailed"):
+def create_chain(llm: BaseLanguageModel, summary_length: str = "detailed") -> LLMChain:
     """Create a summarization chain."""
     prompt_text = (
         "Provide a brief summary based on the following content:\n\n{context}"
@@ -157,31 +159,146 @@ context:
                 ctx = inputs.get("context", "")
                 return f"### Summary of Part X\n\n{ctx[:200]}"  # simple echo for tests
         return _Echo()
-    return prompt_template | llm
+
+    # Explicitly create an LLMChain and then use load_summarize_chain
+    llm_chain = LLMChain(llm=llm, prompt=prompt_template)
+    chain = load_summarize_chain(llm_chain, chain_type="stuff") # Changed chain_type to "stuff" for simplicity
+
+    return chain
 
 
-def process_chat(chain, text_chunk, part_number, logger):
+# --- Optional: LCEL-based summarization helper (non-breaking) ---
+class LCELSummarizeChain:
+    """Lightweight wrapper to mimic LLMChain shape using LCEL under the hood.
+
+    Exposes .llm and .prompt so existing helper (process_chat) can still work
+    by formatting the prompt and invoking llm directly, while also allowing
+    direct runnable invocation via .invoke({"context": ...}).
+    """
+
+    def __init__(self, llm: BaseLanguageModel, prompt: PromptTemplate):
+        self.llm = llm
+        self.prompt = prompt
+        # Build runnable: PromptTemplate -> LLM -> String output
+        # Always coerce PromptValue to string before invoking the LLM to support
+        # simple test doubles (DummyLLM) and non-LCEL LLMs.
+        def _llm_node(x, _llm=llm):
+            # Convert PromptValue to string if needed
+            if hasattr(x, "to_string") and callable(getattr(x, "to_string")):
+                x_in = x.to_string()
+            elif hasattr(x, "text"):
+                x_in = x.text
+            else:
+                x_in = str(x)
+
+            # Prefer .invoke if available, otherwise treat as callable
+            if hasattr(_llm, "invoke") and callable(getattr(_llm, "invoke")):
+                return _llm.invoke(x_in)
+            elif callable(_llm):
+                return _llm(x_in)
+            # Fallback: best-effort string conversion
+            return str(x_in)
+
+        # Compose LCEL pipeline using the callable node
+        self._runnable = self.prompt | _llm_node | StrOutputParser()
+
+    def invoke(self, inputs: dict):
+        return self._runnable.invoke(inputs)
+
+
+def create_chain_lcel(llm: BaseLanguageModel, summary_length: str = "detailed") -> LCELSummarizeChain:
+    """Create a summarization chain using LCEL (Prompt | LLM | StrOutputParser).
+
+    This does not replace the legacy create_chain to avoid breaking behavior,
+    but provides a modern alternative for modules that want to migrate.
+    """
+    prompt_text = (
+        "Provide a brief summary based on the following content:\n\n{context}"
+        if summary_length == "brief"
+        else """
+You are an expert summarizer. Read the following context and provide a detailed summary **following this exact format**:
+
+### Summary of Part X
+
+Begin with a brief introduction summarizing the overall theme of the discussion.
+
+Then, for each main topic discussed, present it as a header and explain what was said about it in bullet points. Follow this structure:
+
+### [Topic Name]
+
+- Key point 1 about the topic.
+- Key point 2 about the topic.
+- Additional details, examples, or speaker recommendations related to the topic.
+
+Continue this format for each topic.
+
+Conclude with any overall insights or themes emphasized by the speaker.
+
+### Please ensure that:
+- Each topic is clearly highlighted as a header.
+- Under each topic, you provide detailed bullet points explaining what was said.
+- The summary strictly adheres to this format without adding or omitting any sections.
+
+context:
+{context}
+"""
+    )
+    prompt = PromptTemplate(input_variables=["context"], template=prompt_text)
+    if llm is None:
+        # Mirror the legacy echo behavior for optional dependency scenarios
+        class _Echo:
+            def __init__(self, prompt):
+                self.llm = None
+                self.prompt = prompt
+
+            def invoke(self, inputs):
+                ctx = inputs.get("context", "")
+                return f"### Summary of Part X\n\n{ctx[:200]}"
+
+        return _Echo(prompt)
+
+    return LCELSummarizeChain(llm=llm, prompt=prompt)
+
+
+def process_chat(chain: LLMChain, text_chunk: str, part_number: int, logger: logging.Logger) -> str:
     """Generate summary for a text chunk."""
     try:
-        response = chain.invoke({"context": text_chunk})
+        # The 'chain' object here is actually the LLMChain from create_chain
+        # So, chain.llm is the actual LLM model
+        # And chain.prompt is the prompt template
+
+        # Format the prompt directly
+        formatted_prompt = chain.prompt.format(context=text_chunk)
+
+        # Directly invoke the LLM
+        response = chain.llm.invoke(formatted_prompt)
+
+        # Extract content, ensuring it's a string
+        content = ""
         if isinstance(response, str):
-            return f"### Summary of Part {part_number}\n\n" + response.strip()
+            content = response
         elif isinstance(response, AIMessage):
-            return f"### Summary of Part {part_number}\n\n" + response.content.strip()
-        return f"### Summary of Part {part_number}\n\n" + str(response).strip()
+            content = response.content
+        else:
+            content = str(response) # Fallback for unexpected types
+
+        # Ensure content is a string before stripping
+        final_content = str(content)
+
+        return f"### Summary of Part {part_number}\n\n" + final_content.strip()
     except Exception as e:
         logger.error(f"Failed to process chat for part {part_number}: {e}")
         return ""
 
 
-def save_text(text, filename, output_path):
+def save_text(text: str, filename: str, output_path: str) -> None:
     """Save text to a file."""
     output_file = os.path.join(output_path, filename)
     with open(output_file, "w", encoding="utf-8") as file:
         file.write(text)
 
 
-def save_md(text, filename, title, meta, output_path, logger):
+def save_md(text: str, filename: str, title: str, meta: str, output_path: str, logger: logging.Logger) -> None:
     """Save summary as Markdown."""
     try:
         if not os.path.exists(output_path):
@@ -194,7 +311,7 @@ def save_md(text, filename, title, meta, output_path, logger):
         logger.error(f"Failed to save markdown file: {e}")
 
 
-def meta_data(cleaned_title, url, channel, input="youtube"):
+def meta_data(cleaned_title: str, url: str, channel: str, input: str = "youtube") -> str:
     return f"""---
 status: inputs/summary
 medium: video/{input}

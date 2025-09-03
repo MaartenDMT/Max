@@ -3,10 +3,18 @@ import asyncio
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
-try:
-    from langchain_ollama import ChatOllama  # optional
-except Exception:  # pragma: no cover - optional dep
-    ChatOllama = None
+from utils.llm_manager import LLMManager, LLMConfig # Added LLMConfig import
+from decouple import config as decouple_config
+
+llm_config_data = {
+    "llm_provider": decouple_config("LLM_PROVIDER", default="ollama"),
+    "anthropic_api_key": decouple_config("ANTHROPIC_API_KEY", default=None),
+    "openai_api_key": decouple_config("OPENAI_API_KEY", default=None),
+    "openrouter_api_key": decouple_config("OPENROUTER_API_KEY", default=None),
+    "gemini_api_key": decouple_config("GEMINI_API_KEY", default=None),
+}
+llm_manager = LLMManager(LLMConfig(**llm_config_data)) # Instantiate LLMConfig
+
 
 # System prompt for the critique AI
 critique_system_prompt = """
@@ -38,15 +46,8 @@ class CritiqueLLM:
     """AI agent designed to provide detailed critiques and feedback."""
 
     def __init__(self):
-        """Initialize CritiqueLLM with ChatOllama."""
-        self.model = ChatOllama(
-            model="llama3.1",
-            temperature=0.4,
-            num_predict=-1,
-            top_p=0.85,
-            frequency_penalty=0.3,
-            presence_penalty=0.5,
-        ) if ChatOllama is not None else None
+        """Initialize CritiqueLLM."""
+        self.model = llm_manager.get_llm()
 
         self.prompt_template = ChatPromptTemplate.from_messages(
             [
@@ -63,10 +64,11 @@ class CritiqueLLM:
         ]
 
         # Get the AI response asynchronously
-        if self.model is None:
+        model = self.model  # This triggers lazy loading
+        if model is None:
             # lightweight fallback for tests
             return "<thinking>Test mode</thinking>\n<critique>OK</critique>\n<output>OK</output>"
-        response = await self.model.ainvoke(input_message)
+        response = await model.ainvoke(input_message)
 
         # If response contains AIMessage, extract the content
         if isinstance(response, AIMessage):

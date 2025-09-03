@@ -68,7 +68,7 @@ class ReflectingLLM:
         # Get the AI response asynchronously
         model = self.model  # This triggers lazy loading
         if model is None:
-            return "<thinking>Test mode</thinking>\n<reflection>OK</reflection>\n<o>OK</o>"
+            return "<thinking>Test mode</thinking>\n<reflection>OK</reflection>\n<output>OK</output>"
         response = await model.ainvoke(input_message)
         # If response contains AIMessage, extract the content
         if isinstance(response, AIMessage):

@@ -1,18 +1,27 @@
 import asyncio  # Import asyncio for to_thread
 import os
 
-try:
-    from langchain_ollama import ChatOllama  # optional
-except Exception:  # pragma: no cover - optional dependency
-    ChatOllama = None
+from decouple import config as decouple_config
 
-from utils.common.shared_summarize_utils import (clean_title, create_chain,
+from utils.common.shared_summarize_utils import (clean_title,
+                                                 create_chain_lcel,
                                                  download_audio,
                                                  get_video_info, meta_data,
                                                  process_chat, save_md,
                                                  save_text, split_text,
                                                  transcribe_audio)
+from utils.llm_manager import LLMConfig, LLMManager  # Added LLMConfig import
 from utils.loggers import LoggerSetup
+
+llm_config_data = {
+    "llm_provider": decouple_config("LLM_PROVIDER", default="ollama"),
+    "anthropic_api_key": decouple_config("ANTHROPIC_API_KEY", default=None),
+    "openai_api_key": decouple_config("OPENAI_API_KEY", default=None),
+    "openrouter_api_key": decouple_config("OPENROUTER_API_KEY", default=None),
+    "gemini_api_key": decouple_config("GEMINI_API_KEY", default=None),
+}
+llm_manager = LLMManager(LLMConfig(**llm_config_data)) # Instantiate LLMConfig
+
 
 MAX_CHUNK_SIZE = 2048
 
@@ -27,11 +36,7 @@ class RumbleSummarizer:
         self.audio_filename = os.path.join(self.download_path, "audio.wav")
 
         # Lazy/optional LLM; only available if langchain_ollama is installed
-        self.llm = (
-            ChatOllama(model="deepseek-r1:latest", temperature=0.2, num_predict=-1)
-            if ChatOllama is not None
-            else None
-        )
+        self.llm = llm_manager.get_llm()
 
         log_setup = LoggerSetup()
         self.logger = log_setup.get_logger("RumbleSummarizer", "rumble_summarizer.log")
@@ -88,7 +93,8 @@ class RumbleSummarizer:
             )
             self.logger.info(f"Transcription split into {len(chunks)} chunks.")
 
-            chain = await asyncio.to_thread(create_chain, self.llm, summary_length)
+            # Use LCEL-based chain wrapper (compatible with existing process_chat)
+            chain = await asyncio.to_thread(create_chain_lcel, self.llm, summary_length)
             if not chain:
                 return {
                     "status": "error",
@@ -139,5 +145,4 @@ class RumbleSummarizer:
             return {"status": "error", "message": f"An error occurred: {str(e)}"}
         finally:
             if await asyncio.to_thread(os.path.exists, self.audio_filename):
-                await asyncio.to_thread(os.remove, self.audio_filename)
                 await asyncio.to_thread(os.remove, self.audio_filename)

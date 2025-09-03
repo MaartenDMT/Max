@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 
 
-def clean_up(where="writer"):
+async def clean_up(where="writer"):
     """
     Moves the 'all_chapters.json' file from the source directory to the destination directory.
     If the file already exists in the destination directory, appends a counter to the filename to avoid overwriting.
@@ -21,39 +21,39 @@ def clean_up(where="writer"):
         dst_base_name = "all_chapters.json"
 
     # Check if the source file exists
-    if not src_path.exists():
+    if not await asyncio.to_thread(src_path.exists):
         print(f"Source file {src_path} does not exist.")
         return
 
     # Check if the file is empty or contains only '{}'
-    if src_path.stat().st_size == 0 or src_path.read_text().strip() == "{}":
+    if await asyncio.to_thread(src_path.stat).st_size == 0 or (await asyncio.to_thread(src_path.read_text)).strip() == "{}":
         print(f"File {src_path} is empty or contains only '{{}}'. Removing the file.")
-        src_path.unlink()
+        await asyncio.to_thread(src_path.unlink)
         return
 
     # Ensure the destination directory exists
-    dst_dir.mkdir(parents=True, exist_ok=True)
+    await asyncio.to_thread(dst_dir.mkdir, parents=True, exist_ok=True)
 
     # Determine the new filename if the base name already exists in the destination directory
     dst_path = dst_dir / dst_base_name
     counter = 1
-    while dst_path.exists():
+    while await asyncio.to_thread(dst_path.exists):
         dst_path = dst_dir / f"all_chapters_{counter}.json"
         counter += 1
 
     # Move the file to the destination directory
-    shutil.move(str(src_path), str(dst_path))
+    await asyncio.to_thread(shutil.move, str(src_path), str(dst_path))
     print(f"File moved to {dst_path}")
 
 
-def get_file_contents(file_path):
+async def get_file_contents(file_path):
     """
     Returns the content of a text file
     """
 
     try:
         with open(file_path, "r", encoding="utf-8") as file:
-            return file.read()
+            return await asyncio.to_thread(file.read)
     except FileNotFoundError:
         print(f"Error file not found")
         return None
@@ -62,7 +62,7 @@ def get_file_contents(file_path):
         return None
 
 
-def extract_and_save_json(response, output_file):
+async def extract_and_save_json(response, output_file):
     """_summary_
     Extract JSON from the response and saves it to a file.
 
@@ -88,8 +88,8 @@ def extract_and_save_json(response, output_file):
             return None
 
         # Save the valid JSON to a file
-        with open(output_file, "w", encoding="utf-8") as file:
-            json.dump(json_data, file, indent=2, ensure_ascii=False)
+        async with asyncio.to_thread(open, output_file, "w", encoding="utf-8") as file:
+            await asyncio.to_thread(json.dump, json_data, file, indent=2, ensure_ascii=False)
 
         print(f"JSON successfully extracted and saved to {output_file}")
         return json_data
@@ -193,14 +193,14 @@ def split_text(text, max_chunk_size=2048):
     return chunks
 
 
-def process_text_in_chunks(agent_function, text, *args, **kwargs):
+async def process_text_in_chunks(agent_function, text, *args, **kwargs):
     """Process the text in chunks using the specified agent function."""
     chunks = split_text(text)
     results = []
 
     for idx, chunk in enumerate(chunks):
         logging.info(f"Processing chunk {idx + 1}/{len(chunks)}")
-        result = agent_function(chunk, *args, **kwargs)
+        result = await agent_function(chunk, *args, **kwargs)
         if result:
             results.append(result)
         else:
@@ -210,13 +210,13 @@ def process_text_in_chunks(agent_function, text, *args, **kwargs):
     return combined_result
 
 
-def process_json_in_chunks(agent_function, text, *args, **kwargs):
+async def process_json_in_chunks(agent_function, text, *args, **kwargs):
     chunks = split_text(text)
     combined_data = {}
 
     for idx, chunk in enumerate(chunks):
         logging.info(f"Processing chunk {idx + 1}/{len(chunks)}")
-        result = agent_function(chunk, *args, **kwargs)
+        result = await agent_function(chunk, *args, **kwargs)
         if result:
             # Extract JSON between <json> and </json>
             json_text = re.search(r"<json>(.*?)</json>", result, re.DOTALL)

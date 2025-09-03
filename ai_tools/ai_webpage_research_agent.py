@@ -1,33 +1,47 @@
+import asyncio
 import json
 
+from decouple import config as decouple_config
 from dotenv import load_dotenv
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain.tools.retriever import create_retriever_tool
+from langchain_chroma import Chroma
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_community.tools import WikipediaQueryRun
 from langchain_community.utilities import WikipediaAPIWrapper
-from langchain_community.vectorstores.chroma import Chroma
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_ollama import ChatOllama, OllamaEmbeddings
+from langchain_ollama import OllamaEmbeddings
+
+from utils.llm_manager import LLMConfig, LLMManager  # Added LLMConfig import
+
+llm_config_data = {
+    "llm_provider": decouple_config("LLM_PROVIDER", default="ollama"),
+    "anthropic_api_key": decouple_config("ANTHROPIC_API_KEY", default=None),
+    "openai_api_key": decouple_config("OPENAI_API_KEY", default=None),
+    "openrouter_api_key": decouple_config("OPENROUTER_API_KEY", default=None),
+    "gemini_api_key": decouple_config("GEMINI_API_KEY", default=None),
+}
+llm_manager = LLMManager(LLMConfig(**llm_config_data)) # Instantiate LLMConfig
+
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
 
 sytem_prompt = """
-You are an advanced research assistant called "Researcher". Your goal is to assist the user in extracting, analyzing, and presenting information 
-in a clear and concise manner. You are capable of processing large amounts of web-based information, drawing from specific sources, and presenting 
+You are an advanced research assistant called "Researcher". Your goal is to assist the user in extracting, analyzing, and presenting information
+in a clear and concise manner. You are capable of processing large amounts of web-based information, drawing from specific sources, and presenting
 it in well-organized responses.
 
 Your responses should follow this structure:
-    
-1. **Introduction**: 
+
+1. **Introduction**:
    - Briefly introduce the topic or provide context based on the user's question.
-   
+
 2. **Research Steps**:
    - Clearly outline the steps you will take to gather the necessary information (e.g., extracting key information from specific websites, using tools to analyze data).
    - Use relevant external sources (like Wikipedia or web documents) to provide a well-rounded answer.
-   
+
 3. **Analysis**:
    - Provide in-depth analysis and insights based on the gathered information.
    - When applicable, cite specific parts of the sources to strengthen your response.
@@ -56,12 +70,34 @@ class AIWebPageResearchAgent:
         self.vectorStore = None
         self.agentExecutor = None
 
-    def load_urls(self, urls_file):
+        # Lazy initialization for OllamaEmbeddings and LLM
+        self._embedding_model = None
+        self._llm_model = None
+
+        from utils.loggers import LoggerSetup
+        log_setup = LoggerSetup()
+        self.logger = log_setup.get_logger("AIWebPageResearchAgent", "ai_webpage_research_agent.log")
+
+    @property
+    def embedding_model(self):
+        if self._embedding_model is None:
+            self.logger.info("Lazy loading OllamaEmbeddings model.")
+            self._embedding_model = OllamaEmbeddings(model="nomic-embed-text")
+        return self._embedding_model
+
+    @property
+    def llm_model(self):
+        if self._llm_model is None:
+            self.logger.info("Lazy loading LLM model.")
+            self._llm_model = llm_manager.get_llm()
+        return self._llm_model
+
+    async def load_urls(self, urls_file):
         """Load URLs from the given JSON file."""
         with open(urls_file, "r") as f:
-            return json.load(f)
+            return await asyncio.to_thread(json.load, f)
 
-    def get_documents(self, category):
+    async def get_documents(self, category):
         """Get documents from a list of URLs in a specific category."""
         if category not in self.urls:
             raise ValueError(f"Category '{category}' not found in URLs.")
@@ -70,24 +106,20 @@ class AIWebPageResearchAgent:
         all_docs = []
         for url in urls:
             loader = WebBaseLoader(url)
-            docs = loader.load()
+            docs = await asyncio.to_thread(loader.load)
             splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=20)
             splitDocs = splitter.split_documents(docs)
             all_docs.extend(splitDocs)
         return all_docs
 
-    def create_db(self, docs):
+    async def create_db(self, docs):
         """Create a vector store from the documents."""
-        embedding = OllamaEmbeddings(model="nomic-embed-text")
-        vectorStore = Chroma.from_documents(docs, embedding=embedding)
+        vectorStore = await asyncio.to_thread(Chroma.from_documents, docs, embedding=self.embedding_model)
         return vectorStore
 
-    def create_agentchain(self):
+    async def create_agentchain(self):
         """Create an agent chain using the vector store."""
-        model = ChatOllama(
-            model="llama3.1",
-            temperature=0.7,
-        )
+        model = self.llm_model
 
         prompt = ChatPromptTemplate.from_messages(
             [
@@ -116,30 +148,30 @@ class AIWebPageResearchAgent:
 
         self.agentExecutor = AgentExecutor(agent=agent, tools=tools)
 
-    def process_chat(self, user_input):
+    async def process_chat(self, user_input):
         """Process a user input and get a response from the agent."""
-        response = self.agentExecutor.invoke(
+        response = await asyncio.to_thread(self.agentExecutor.invoke,
             {"input": user_input, "chat_history": self.chat_history}
         )
         self.chat_history.append(HumanMessage(content=user_input))
         self.chat_history.append(AIMessage(content=response["output"]))
         return response["output"]
 
-    def setup_research(self, category):
+    async def setup_research(self, category):
         """Set up the research process by loading documents and creating the agent chain."""
-        docs = self.get_documents(category)
-        self.vectorStore = self.create_db(docs)
-        self.create_agentchain()
+        docs = await self.get_documents(category)
+        self.vectorStore = await self.create_db(docs)
+        await self.create_agentchain()
 
     def add_research_category(self, category_name, urls):
         """Add a new research category with its URLs."""
         self.urls[category_name] = urls
         self.save_urls("urls.json")
 
-    def save_urls(self, urls_file):
+    async def save_urls(self, urls_file):
         """Save the updated URLs back to the JSON file."""
         with open(urls_file, "w") as f:
-            json.dump(self.urls, f, indent=4)
+            await asyncio.to_thread(json.dump, self.urls, f, indent=4)
 
 
 if __name__ == "__main__":

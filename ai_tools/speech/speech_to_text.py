@@ -94,13 +94,13 @@ class TranscribeFastModel:
             self.logger.error(f"An error occurred during audio recording: {e}")
             return np.array([], dtype="float64").reshape(0, 2)
 
-    def save_temp_audio(self, recording):
+    async def save_temp_audio(self, recording):
         """Save the recorded audio to a temporary file."""
         try:
             write = importlib.import_module("scipy.io.wavfile").write
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-            write(temp_file.name, self.sample_rate, recording)
-            self.logger.info(f"Audio saved to temporary file: {temp_file.name}")
+            await asyncio.to_thread(write, temp_file.name, self.sample_rate, recording)
+            self.logger.info("Audio saved to temporary file: %s", temp_file.name)
             return temp_file.name
         except Exception as e:
             self.logger.error(f"Error saving audio: {e}")
@@ -201,16 +201,20 @@ class TranscribeFastModel:
 
 
 def split_audio(audio_filepath):
-    """Splits the audio file into smaller segments using pydub."""
+    """Splits the audio file into smaller segments using pydub (synchronous)."""
     audio = AudioSegment.from_file(audio_filepath)
     segment_length = 60 * 60 * 1000  # 60 minutes in milliseconds
     segments = []
 
+    # Use a temporary sibling folder near input file to avoid repo paths in tests
+    base_dir = os.path.join(os.path.dirname(audio_filepath), "segments")
+    os.makedirs(base_dir, exist_ok=True)
+
     for start in range(0, len(audio), segment_length):
         end = min(start + segment_length, len(audio))
         segment = audio[start:end]
-        time = (start // 1000) // 60
-        segment_filename = f"data/audio/segments/segment_{time}.wav"
+        time_min = (start // 1000) // 60
+        segment_filename = os.path.join(base_dir, f"segment_{time_min}.wav")
         segment.export(segment_filename, format="wav")
         segments.append(segment_filename)
 
@@ -266,7 +270,7 @@ class TranscribeSlowModel:
             self.logger.info("Stopped recording.")
             return None
 
-    def record_audio(self):
+    async def record_audio(self):
         """Record audio while the hotkey is pressed."""
         self.logger.info("Waiting for hotkey press to start recording.")
         recording = None
@@ -276,23 +280,27 @@ class TranscribeSlowModel:
             frames_per_buffer = int(self.sample_rate * 0.1)
 
             keyboard = importlib.import_module("pynput.keyboard")
-            with keyboard.Listener(
-                on_press=self.on_press, on_release=self.on_release
-            ) as listener:
-                while True:
-                    if self.is_recording:
-                        sd = importlib.import_module("sounddevice")
-                        chunk = sd.rec(
-                            frames_per_buffer,
-                            samplerate=self.sample_rate,
-                            channels=2,
-                            dtype="float64",
-                        )
-                        sd.wait()
-                        recording = np.vstack([recording, chunk])
-                    if not self.is_recording and len(recording) > 0:
-                        break
-                listener.join()
+            # Run the listener in a separate thread to avoid blocking the event loop
+            listener = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)
+            listener.start()
+
+            while True:
+                if self.is_recording:
+                    sd = importlib.import_module("sounddevice")
+                    chunk = await asyncio.to_thread(
+                        sd.rec,
+                        frames_per_buffer,
+                        samplerate=self.sample_rate,
+                        channels=2,
+                        dtype="float64",
+                    )
+                    await asyncio.to_thread(sd.wait)
+                    recording = np.vstack([recording, chunk])
+                if not self.is_recording and len(recording) > 0:
+                    break
+                await asyncio.sleep(0.01) # Small sleep to yield control
+            listener.stop()
+            listener.join()
             self.logger.info("Recording captured with %d samples.", len(recording))
         except Exception as e:
             self.logger.error("Error in recording audio: %s", e)
@@ -309,14 +317,14 @@ class TranscribeSlowModel:
         except Exception as e:
             self.logger.error("Error saving audio: %s", e)
 
-    def transcribe(self, audio_filepath):
+    async def transcribe(self, audio_filepath):
         """Transcribe the given audio file using Whisper."""
         try:
             self.logger.info("Transcribing audio file: %s", audio_filepath)
             if self._slow_model is None:
                 whisper = importlib.import_module("whisper")
-                self._slow_model = whisper.load_model(self.model_size).to(self.device)
-            result = self._slow_model.transcribe(audio_filepath)
+                self._slow_model = await asyncio.to_thread(whisper.load_model, self.model_size).to(self.device)
+            result = await asyncio.to_thread(self._slow_model.transcribe, audio_filepath)
             if (
                 isinstance(result, dict)
                 and "text" in result
@@ -333,13 +341,13 @@ class TranscribeSlowModel:
         except Exception as e:
             self.logger.error("Error during transcription: %s", e)
 
-    def run(self):
+    async def run(self):
         """Main loop to handle recording and transcribing."""
         while True:
-            recording = self.record_audio()
+            recording = await self.record_audio()
             if recording is not None and len(recording) > 0:
-                transcription = self.transcribe(
-                    audio_filepath=self.save_temp_audio(recording)
+                transcription = await self.transcribe(
+                    audio_filepath=await self.save_temp_audio(recording)
                 )
                 if transcription:
                     self.logger.info("Transcription: %s", transcription)

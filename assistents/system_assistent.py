@@ -13,25 +13,54 @@ from utils.loggers import LoggerSetup
 
 
 
+
 class SystemAssistant:
+
     def __init__(self, tts_model, speak, listen):
+
         """Initialize the system assistant agent with commands."""
-        self.tts_model = tts_model
+
+        # Lazy load TTS model only when needed
+        self._tts_model_instance = None
+        self._tts_model_factory = tts_model
+
         # These will be placeholders for API context
+
         self._speak = speak
+
         self._listen = listen
 
+
+
         # Setup logger
+
         log_setup = LoggerSetup()
+
         self.logger = log_setup.get_logger("SystemAssistant", "system_assistant.log")
 
+
+
         # Log initialization
-        self.logger.info("System Assistant initialized.")
+
+        self.logger.info("System Assistant initialized with lazy loading.")
+
+
+
+    def _get_tts_model(self):
+        """Lazy load the TTS model when first needed"""
+        if self._tts_model_instance is None:
+            self.logger.info("Lazy loading TTS model")
+            self._tts_model_instance = self._tts_model_factory()
+        return self._tts_model_instance
 
     # Placeholder for speak in API context
+
     async def _speak_api(self, message: str):
+
         self.logger.info(f"API Speak: {message}")
+
         return {"message": message}
+
 
     # Placeholder for listen in API context
     async def _listen_api(self):
@@ -114,6 +143,18 @@ class SystemAssistant:
                 return await self._adjust_volume_api("down")
             elif "mute volume" in command_lower:
                 return await self._adjust_volume_api("mute")
+            # New MCP-enhanced commands
+            elif "system info" in command_lower:
+                return await self._get_system_info_api()
+            elif "network info" in command_lower:
+                return await self._get_network_info_api()
+            elif "process list" in command_lower:
+                return await self._get_process_list_api()
+            elif command_lower.startswith("search process"):
+                search_term = command_lower.replace("search process", "").strip()
+                return await self._search_processes_api(search_term)
+            elif "battery info" in command_lower:
+                return await self._get_battery_info_api()
             else:
                 self.logger.warning(f"Unknown system command: {command}")
                 return {
@@ -518,3 +559,141 @@ class SystemAssistant:
         except Exception as e:
             self.logger.error(f"Error adjusting volume: {str(e)}")
             return {"status": "error", "message": f"Failed to adjust volume: {str(e)}"}
+
+    async def _get_system_info_api(self) -> dict:
+        """Get comprehensive system information using Context7 MCP approach."""
+        try:
+            # Get system information using psutil (existing library)
+            system_info = {
+                "platform": os.name,
+                "cpu_count": psutil.cpu_count(),
+                "cpu_percent": psutil.cpu_percent(interval=1),
+                "virtual_memory": dict(psutil.virtual_memory()._asdict()),
+                "disk_usage": dict(psutil.disk_usage("/")._asdict()),
+                "boot_time": datetime.datetime.fromtimestamp(psutil.boot_time()).strftime("%Y-%m-%d %H:%M:%S"),
+                "process_count": len(list(psutil.process_iter())),
+            }
+            
+            self.logger.info("System information retrieved.")
+            return {
+                "status": "success",
+                "message": "System information retrieved successfully.",
+                "data": system_info,
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting system information: {str(e)}")
+            return {"status": "error", "message": f"Failed to get system information: {str(e)}"}
+
+    async def _get_network_info_api(self) -> dict:
+        """Get network information using Context7 MCP approach."""
+        try:
+            # Get network information using psutil
+            network_info = {}
+            net_if_addrs = psutil.net_if_addrs()
+            net_if_stats = psutil.net_if_stats()
+            
+            for interface, addresses in net_if_addrs.items():
+                network_info[interface] = {
+                    "addresses": [{"family": str(addr.family), "address": addr.address} for addr in addresses],
+                    "stats": net_if_stats.get(interface, {}).namedtuple_asdict() if hasattr(net_if_stats.get(interface, {}), 'namedtuple_asdict') else {}
+                }
+            
+            self.logger.info("Network information retrieved.")
+            return {
+                "status": "success",
+                "message": "Network information retrieved successfully.",
+                "data": network_info,
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting network information: {str(e)}")
+            return {"status": "error", "message": f"Failed to get network information: {str(e)}"}
+
+    async def _get_process_list_api(self) -> dict:
+        """Get list of running processes using Context7 MCP approach."""
+        try:
+            # Get list of processes with their information
+            processes = []
+            for proc in psutil.process_iter(['pid', 'name', 'username', 'cpu_percent', 'memory_percent']):
+                try:
+                    processes.append(proc.info)
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    # Process might have terminated or we don't have access
+                    pass
+            
+            # Sort by CPU usage
+            processes.sort(key=lambda x: x['cpu_percent'] or 0, reverse=True)
+            
+            self.logger.info(f"Process list retrieved ({len(processes)} processes).")
+            return {
+                "status": "success",
+                "message": f"Process list retrieved successfully ({len(processes)} processes).",
+                "data": {"processes": processes[:20]},  # Return top 20 processes
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting process list: {str(e)}")
+            return {"status": "error", "message": f"Failed to get process list: {str(e)}"}
+
+    async def _search_processes_api(self, search_term: str) -> dict:
+        """Search for specific processes using Context7 MCP approach."""
+        try:
+            matching_processes = []
+            for proc in psutil.process_iter(['pid', 'name', 'username', 'cmdline']):
+                try:
+                    # Check if search term matches process name or command line
+                    if (search_term.lower() in proc.info['name'].lower() or 
+                        (proc.info['cmdline'] and any(search_term.lower() in arg.lower() for arg in proc.info['cmdline']))):
+                        matching_processes.append(proc.info)
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    # Process might have terminated or we don't have access
+                    pass
+            
+            self.logger.info(f"Found {len(matching_processes)} processes matching '{search_term}'.")
+            return {
+                "status": "success",
+                "message": f"Found {len(matching_processes)} processes matching '{search_term}'.",
+                "data": {"processes": matching_processes},
+            }
+        except Exception as e:
+            self.logger.error(f"Error searching processes: {str(e)}")
+            return {"status": "error", "message": f"Failed to search processes: {str(e)}"}
+
+    async def _get_battery_info_api(self) -> dict:
+        """Get detailed battery information using Context7 MCP approach."""
+        try:
+            battery = psutil.sensors_battery()
+            if battery is None:
+                return {
+                    "status": "error",
+                    "message": "Battery information not available (desktop system?).",
+                }
+            
+            battery_info = {
+                "percent": battery.percent,
+                "secsleft": battery.secsleft,
+                "power_plugged": battery.power_plugged,
+            }
+            
+            # Convert seconds to hours/minutes for readability
+            if battery.secsleft != psutil.POWER_TIME_UNLIMITED and battery.secsleft != psutil.POWER_TIME_UNKNOWN:
+                hours = battery.secsleft // 3600
+                minutes = (battery.secsleft % 3600) // 60
+                battery_info["time_left"] = f"{hours}h {minutes}m"
+            else:
+                battery_info["time_left"] = "Unknown" if battery.secsleft == psutil.POWER_TIME_UNKNOWN else "Unlimited"
+            
+            self.logger.info("Battery information retrieved.")
+            return {
+                "status": "success",
+                "message": "Battery information retrieved successfully.",
+                "data": battery_info,
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting battery information: {str(e)}")
+            return {"status": "error", "message": f"Failed to get battery information: {str(e)}"}
+
+    def cleanup(self):
+        """Clean up resources used by the system assistant."""
+        self.logger.info("Cleaning up system assistant resources...")
+        # Add any necessary cleanup code here
+        # For now, we're just logging that cleanup was called
+        self.logger.info("System assistant cleanup completed.")

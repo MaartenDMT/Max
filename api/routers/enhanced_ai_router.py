@@ -9,17 +9,10 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from schemas import (
-    AnalysisRequest,
-    AnalysisResponse,
-    QueryRequest,
-    QueryResponse,
-    ResearchRequest,
-    ResearchResponse,
-    WebsiteRequest,
-    WebsiteResponse,
-)
 
+from api.schemas import (AnalysisRequest, AnalysisResponse, QueryRequest,
+                         QueryResponse, ResearchRequest, ResearchResponse,
+                         WebsiteRequest, WebsiteResponse)
 from assistents.enhanced_ai_assistant import EnhancedAIAssistant
 
 # Enhanced request/response models with session support
@@ -336,7 +329,7 @@ async def export_session_data(session_id: str):
         export_data = {
             "session_id": session_id,
             "export_timestamp": datetime.now().isoformat(),
-            "conversation_context": context.dict(),
+            "conversation_context": context.model_dump() if hasattr(context, "model_dump") else dict(context),
             "session_summary": enhanced_assistant.memory_manager.get_session_summary(session_id)
         }
 
@@ -352,7 +345,8 @@ async def export_session_data(session_id: str):
 async def health_check():
     """Enhanced health check with memory status"""
     try:
-        active_sessions = len(enhanced_assistant.memory_manager.sessions)
+        # Get active sessions count from the database
+        active_sessions = len(enhanced_assistant.get_active_sessions())
 
         return {
             "status": "healthy",

@@ -8,3 +8,4 @@ flagged
 gha-creds-*.json
 .venv*
 .github
+.*

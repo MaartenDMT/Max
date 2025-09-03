@@ -1,6 +1,8 @@
 import asyncio
 import json
 
+from typing import Type
+
 # V-- THE MOST IMPORTANT FIX: Import BaseTool from crewai, NOT langchain --V
 # CrewAI optional: provide a minimal BaseTool shim if not installed
 try:
@@ -21,6 +23,22 @@ except Exception:  # pragma: no cover - optional dependency
 from langchain_core.messages import \
     AIMessage  # Keep if AIMessage is still used by LLM responses
 
+from ai_tools.tool_schemas import (
+    ChatbotToolInput,
+    ChatbotToolOutput,
+    MusicGenerationToolInput,
+    MusicGenerationToolOutput,
+    ResearchAgentToolInput,
+    ResearchAgentToolOutput,
+    VideoSummarizerToolInput,
+    VideoSummarizerToolOutput,
+    StoryWriterToolInput,
+    StoryWriterToolOutput,
+    BookWriterToolInput,
+    BookWriterToolOutput,
+    ToolResponse
+)
+
 from agents.video_agent import VideoProcessingAgent
 from ai_tools.ai_bookwriter.bookwriter import BookWriter
 # (Assuming these imports are correct and the modules exist)
@@ -30,16 +48,19 @@ from ai_tools.ai_music_generation import MusicLoopGenerator
 from ai_tools.ai_research_agent import AIResearchTools
 from ai_tools.ai_write_assistent.writer import WriterAssistant
 
+from ai_tools.speech.speech_to_text import TranscribeFastModel
+
+from agents.chatbot_agent import ChatbotAgent
+
 # Initialize dependencies
-_chatbot_llm_modes = {"reflecting": ReflectingLLM(), "critique": CritiqueLLM()}
+_chatbot_agent_instance = ChatbotAgent()
 _music_loop_generator_instance = MusicLoopGenerator()
 _research_tools_instance = AIResearchTools()
-_video_processing_agent_instance = VideoProcessingAgent(transcribe=None)
+_video_processing_agent_instance = VideoProcessingAgent(transcribe=TranscribeFastModel())
 _writer_assistant_instance = WriterAssistant()
 _book_writer_instance = BookWriter()
 
 
-# Removed ChatbotToolInput - arguments are inferred from _arun signature
 class ChatbotTool(BaseTool):
     name: str = "Chatbot Tool"
     description: str = (
@@ -47,218 +68,207 @@ class ChatbotTool(BaseTool):
         "Useful for getting critiques or reflections on provided content. "
         "Input: 'mode' (str), 'summary' (str), and 'full_text' (str)."
     )
-    # Removed args_schema: CrewAI BaseTool infers from _arun method signature
+    args_schema: Type[ChatbotToolInput] = ChatbotToolInput
 
-    async def _arun(self, mode: str, summary: str, full_text: str) -> str:
+
+    async def _arun(self, input: ChatbotToolInput) -> ChatbotToolOutput:
         try:
-            mode = mode.strip().lower()
-            if mode not in _chatbot_llm_modes:
-                return json.dumps(
-                    {
-                        "error": f"Invalid mode: {mode}. Available modes: {', '.join(_chatbot_llm_modes.keys())}"
-                    }
+            mode = input.mode.strip().lower()
+            llm = _chatbot_agent_instance.get_llm(mode)
+            if llm is None:
+                return ChatbotToolOutput(
+                    status="error",
+                    error=f"Invalid mode: {mode}. Available modes: {', '.join(_chatbot_agent_instance.llm_factories.keys())}"
                 )
-            content = f"Summary:\n{summary.strip()}\n\nFull Text:\n{full_text.strip()}"
-            response = await _chatbot_llm_modes[mode]._handle_query(content, [])
+            content = f"Summary:\n{input.summary.strip()}\n\nFull Text:\n{input.full_text.strip()}"
+            response = await llm._handle_query(content, [])
             if isinstance(response, AIMessage):
-                return json.dumps({"result": response.content})
-            if isinstance(
-                response, str
-            ):  # Handle cases where response might already be a string
-                return json.dumps({"result": response})
-            return json.dumps({"result": str(response)})
+                return ChatbotToolOutput(result=response.content)
+            if isinstance(response, str):
+                return ChatbotToolOutput(result=response)
+            return ChatbotToolOutput(result=str(response))
         except Exception as e:
-            return json.dumps({"error": f"Error in Chatbot Tool: {str(e)}"})
+            return ChatbotToolOutput(status="error", error=f"Error in Chatbot Tool: {str(e)}")
 
-    # _run is synchronous, so it calls _arun via a private loop when safe
-    def _run(self, mode: str, summary: str, full_text: str) -> str:
+    def _run(self, input: ChatbotToolInput) -> ChatbotToolOutput:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             loop = None
         if loop and loop.is_running():
-            # When already in an event loop, run in a worker thread
-            return asyncio.run(asyncio.to_thread(self._arun, mode, summary, full_text))
-        return asyncio.run(self._arun(mode=mode, summary=summary, full_text=full_text))
+            return asyncio.run(asyncio.to_thread(self._arun, input))
+        return asyncio.run(self._arun(input=input))
 
 
 chatbot_tool = ChatbotTool()
 
 
-# Removed MusicGenerationToolInput
+
 class MusicGenerationTool(BaseTool):
     name: str = "Music Generation Tool"
     description: str = (
         "Generates a music loop based on a prompt and BPM. "
         "Input: 'bpm' (int) and 'prompt' (str)."
     )
-    # Removed args_schema
+    args_schema: Type[MusicGenerationToolInput] = MusicGenerationToolInput
 
-    async def _arun(self, bpm: int, prompt: str) -> str:
+    async def _arun(self, input: MusicGenerationToolInput) -> MusicGenerationToolOutput:
         try:
             loop_file = await asyncio.to_thread(
-                _music_loop_generator_instance.generate_loop, prompt=prompt, bpm=bpm
+                _music_loop_generator_instance.generate_loop, prompt=input.prompt, bpm=input.bpm, duration=input.duration
             )
             if loop_file:
-                return json.dumps(
-                    {
-                        "status": "success",
-                        "message": f"Music loop generated: {loop_file}",
-                        "file_path": loop_file,
-                    }
+                return MusicGenerationToolOutput(
+                    status="success",
+                    message=f"Music loop generated: {loop_file}",
+                    file_path=loop_file,
                 )
             else:
-                return json.dumps(
-                    {"status": "error", "message": "Failed to generate music loop."}
+                return MusicGenerationToolOutput(
+                    status="error", message="Failed to generate music loop."
                 )
         except Exception as e:
-            return json.dumps({"error": f"Error in Music Generation Tool: {str(e)}"})
+            return MusicGenerationToolOutput(status="error", error=f"Error in Music Generation Tool: {str(e)}")
 
-    def _run(self, bpm: int, prompt: str) -> str:
+    def _run(self, input: MusicGenerationToolInput) -> MusicGenerationToolOutput:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             loop = None
         if loop and loop.is_running():
-            return asyncio.run(asyncio.to_thread(self._arun, bpm, prompt))
-        return asyncio.run(self._arun(bpm=bpm, prompt=prompt))
+            return asyncio.run(asyncio.to_thread(self._arun, input))
+        return asyncio.run(self._arun(input=input))
 
 
 music_generation_tool = MusicGenerationTool()
 
 
-# Removed ResearchAgentToolInput
 class ResearchAgentTool(BaseTool):
     name: str = "Research Agent Tool"
     description: str = (
         "Performs general research using various tools like Wikipedia, DuckDuckGo, and file operations. "
         "Input: 'query' (str)."
     )
-    # Removed args_schema
+    args_schema: Type[ResearchAgentToolInput] = ResearchAgentToolInput
 
-    async def _arun(self, query: str) -> str:
+    async def _arun(self, input: ResearchAgentToolInput) -> ResearchAgentToolOutput:
         try:
             response = await asyncio.to_thread(
-                _research_tools_instance.process_chat, query
+                _research_tools_instance.process_chat, input.query
             )
-            return json.dumps({"research_result": response})
+            return ResearchAgentToolOutput(research_result=response)
         except Exception as e:
-            return json.dumps({"error": f"Error in Research Agent Tool: {str(e)}"})
+            return ResearchAgentToolOutput(status="error", error=f"Error in Research Agent Tool: {str(e)}")
 
-    def _run(self, query: str) -> str:
+    def _run(self, input: ResearchAgentToolInput) -> ResearchAgentToolOutput:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             loop = None
         if loop and loop.is_running():
-            return asyncio.run(asyncio.to_thread(self._arun, query))
-        return asyncio.run(self._arun(query=query))
+            return asyncio.run(asyncio.to_thread(self._arun, input))
+        return asyncio.run(self._arun(input=input))
 
 
 research_agent_tool = ResearchAgentTool()
 
 
-# Removed VideoSummarizerToolInput
 class VideoSummarizerTool(BaseTool):
     name: str = "Video Summarizer Tool"
     description: str = (
         "Summarizes YouTube or Rumble videos. " "Input: 'video_url' (str)."
     )
-    # Removed args_schema
+    args_schema: Type[VideoSummarizerToolInput] = VideoSummarizerToolInput
 
-    async def _arun(self, video_url: str) -> str:
+    async def _arun(self, input: VideoSummarizerToolInput) -> VideoSummarizerToolOutput:
         try:
             result = await asyncio.to_thread(
-                _video_processing_agent_instance.handle_user_input, video_url
+                _video_processing_agent_instance.handle_user_input, input.video_url
             )
             if result.get("status") == "success":
-                return json.dumps(
-                    {
-                        "summary": result.get("summary"),
-                        "full_text": result.get("full_text"),
-                    }
+                return VideoSummarizerToolOutput(
+                    summary=result.get("summary"),
+                    full_text=result.get("full_text"),
                 )
             else:
-                return json.dumps(
-                    {"error": result.get("message", "Failed to summarize video.")}
+                return VideoSummarizerToolOutput(
+                    status="error", error=result.get("message", "Failed to summarize video.")
                 )
         except Exception as e:
-            return json.dumps({"error": f"Error in Video Summarizer Tool: {str(e)}"})
+            return VideoSummarizerToolOutput(status="error", error=f"Error in Video Summarizer Tool: {str(e)}")
 
-    def _run(self, video_url: str) -> str:
+    def _run(self, input: VideoSummarizerToolInput) -> VideoSummarizerToolOutput:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             loop = None
         if loop and loop.is_running():
-            return asyncio.run(asyncio.to_thread(self._arun, video_url))
-        return asyncio.run(self._arun(video_url=video_url))
+            return asyncio.run(asyncio.to_thread(self._arun, input))
+        return asyncio.run(self._arun(input=input))
 
 
 video_summarizer_tool = VideoSummarizerTool()
 
 
-# Removed StoryWriterToolInput
 class StoryWriterTool(BaseTool):
     name: str = "Story Writer Tool"
     description: str = (
         "Creates a story based on a given book description and initial text content. "
         "Input: 'book_description' (str) and 'text_content' (str)."
     )
-    # Removed args_schema
+    args_schema: Type[StoryWriterToolInput] = StoryWriterToolInput
 
-    async def _arun(self, book_description: str, text_content: str) -> str:
+    async def _arun(self, input: StoryWriterToolInput) -> StoryWriterToolOutput:
         try:
             story_output = await asyncio.to_thread(
                 _writer_assistant_instance.create_story,
-                book_description,
-                text_content,
+                input.book_description,
+                input.text_content,
             )
-            return json.dumps({"story_output": story_output})
+            return StoryWriterToolOutput(story_output=story_output)
         except Exception as e:
-            return json.dumps({"error": f"Error in Story Writer Tool: {str(e)}"})
+            return StoryWriterToolOutput(status="error", error=f"Error in Story Writer Tool: {str(e)}")
 
-    def _run(self, book_description: str, text_content: str) -> str:
+    def _run(self, input: StoryWriterToolInput) -> StoryWriterToolOutput:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             loop = None
         if loop and loop.is_running():
             return asyncio.run(
-                asyncio.to_thread(self._arun, book_description, text_content)
+                asyncio.to_thread(self._arun, input)
             )
         return asyncio.run(
-            self._arun(book_description=book_description, text_content=text_content)
+            self._arun(input=input)
         )
 
 
 story_writer_tool = StoryWriterTool()
 
 
-# Removed BookWriterToolInput
 class BookWriterTool(BaseTool):
     name: str = "Book Writer Tool"
     description: str = (
         "Creates a book based on a given book description, number of chapters, and initial text content. "
         "Input: 'book_description' (str), 'num_chapters' (int), and 'text_content' (str)."
     )
-    # Removed args_schema
+    args_schema: Type[BookWriterToolInput] = BookWriterToolInput
 
     async def _arun(
-        self, book_description: str, num_chapters: int, text_content: str
-    ) -> str:
+        self, input: BookWriterToolInput
+    ) -> BookWriterToolOutput:
         try:
             book_output = await asyncio.to_thread(
                 _book_writer_instance.create_story,
-                book_description,
-                num_chapters,
-                text_content,
+                input.book_description,
+                input.num_chapters,
+                input.text_content,
             )
-            return json.dumps({"book_output": book_output})
+            return BookWriterToolOutput(book_output=book_output)
         except Exception as e:
-            return json.dumps({"error": f"Error in Book Writer Tool: {str(e)}"})
+            return BookWriterToolOutput(status="error", error=f"Error in Book Writer Tool: {str(e)}")
 
-    def _run(self, book_description: str, num_chapters: int, text_content: str) -> str:
+    def _run(self, input: BookWriterToolInput) -> BookWriterToolOutput:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -266,14 +276,12 @@ class BookWriterTool(BaseTool):
         if loop and loop.is_running():
             return asyncio.run(
                 asyncio.to_thread(
-                    self._arun, book_description, num_chapters, text_content
+                    self._arun, input
                 )
             )
         return asyncio.run(
             self._arun(
-                book_description=book_description,
-                num_chapters=num_chapters,
-                text_content=text_content,
+                input=input
             )
         )
 

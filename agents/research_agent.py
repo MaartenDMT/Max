@@ -1,6 +1,7 @@
 import asyncio
+import json
 
-from ai_tools.ai_research_agent import AIResearchTools  # Removed SummarizeTextInput
+from ai_tools.ai_research_agent import AIResearchTools, summarize_text
 
 
 class AIResearchAgent:
@@ -24,9 +25,8 @@ class AIResearchAgent:
         try:
             if not isinstance(text, str) or not text.strip():
                 return {"status": "error", "message": "Empty text to summarize."}
-            summarize_tool = self.research_tools.summarize_text_tool
             # _run is sync; keep sync but offload to thread for API safety
-            result = await asyncio.to_thread(summarize_tool._run, text=text)
+            result = await asyncio.to_thread(summarize_text._run, text=text)
             # result is JSON string; ensure dict return
             try:
                 parsed = json.loads(result)

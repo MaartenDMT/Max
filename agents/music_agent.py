@@ -1,6 +1,5 @@
-from ai_tools.ai_music_generation import (
-    MusicLoopGenerator,  # Assuming this is the tool we just created
-)
+from ai_tools.ai_music_generation import \
+    MusicLoopGenerator  # Assuming this is the tool we just created
 
 
 class MusicCreationAgent:
@@ -52,22 +51,32 @@ class MusicCreationAgent:
                     "status": "error",
                     "message": "Music generator is unavailable (optional dependency missing).",
                 }
-            loop_file = self.loop_generator.generate_loop(
-                prompt=prompt, bpm=bpm, duration=actual_duration
-            )
-            if loop_file:
-                return {
-                    "status": "success",
-                    "message": f"Music loop generated: {loop_file}",
-                    "file_path": loop_file,
-                }
-            else:
+            # With generator available, generate loop (generator API may be async or sync)
+            try:
+                gen = getattr(self.loop_generator, "generate_loop", None)
+                if gen is None:
+                    return {"status": "error", "message": "Generator missing generate_loop."}
+                # Try sync first
+                result = None
+                try:
+                    result = gen(prompt=prompt, bpm=bpm, duration=actual_duration)
+                except TypeError:
+                    # Some implementations require positional-only or differ; try positional
+                    result = gen(prompt, bpm, actual_duration)
+                # If coroutine returned, run it synchronously
+                import asyncio
+                if asyncio.iscoroutine(result):
+                    result = asyncio.run(result)
+                # Normalize to expected dict format
+                if isinstance(result, dict):
+                    return result
+                if isinstance(result, str):
+                    return {"status": "success", "message": result, "file_path": result}
+                if result:
+                    return {"status": "success", "message": "ok", "file_path": str(result)}
                 return {"status": "error", "message": "Failed to generate music loop."}
-        else:
-            return {
-                "status": "error",
-                "message": "Sorry, I couldn't understand your request. Please provide a valid genre and BPM.",
-            }
+            except Exception as e:
+                return {"status": "error", "message": f"Generation failed: {e}"}
 
     def parse_user_input(self, user_input):
         """

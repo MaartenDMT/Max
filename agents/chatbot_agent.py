@@ -5,10 +5,10 @@ from langchain_core.messages import AIMessage
 
 from ai_tools.ai_llm.llm_critique import CritiqueLLM
 from ai_tools.ai_llm.llm_reflecting import ReflectingLLM
-from ai_tools.ai_llm.llm_casual import CasualMode
-from ai_tools.ai_llm.llm_professional import ProfessionalMode
-from ai_tools.ai_llm.llm_creative import CreativeMode
-from ai_tools.ai_llm.llm_analytical import AnalyticalMode
+from ai_tools.ai_llm.llm_casual import CasualLLM
+from ai_tools.ai_llm.llm_professional import ProfessionalLLM
+from ai_tools.ai_llm.llm_creative import CreativeLLM
+from ai_tools.ai_llm.llm_analytical import AnalyticalLLM
 
 
 class ChatbotAgent:
@@ -26,10 +26,10 @@ class ChatbotAgent:
         # Register LLM factory functions
         self.register_llm("reflecting", ReflectingLLM)
         self.register_llm("critique", CritiqueLLM)
-        self.register_llm("casual", CasualMode)
-        self.register_llm("professional", ProfessionalMode)
-        self.register_llm("creative", CreativeMode)
-        self.register_llm("analytical", AnalyticalMode)
+        self.register_llm("casual", CasualLLM)
+        self.register_llm("professional", ProfessionalLLM)
+        self.register_llm("creative", CreativeLLM)
+        self.register_llm("analytical", AnalyticalLLM)
 
     def register_llm(self, name, model_class):
         """
@@ -69,11 +69,7 @@ class ChatbotAgent:
                 }
 
             # Combine both summary and full text for critique
-            content_for_processing = f"Summary:
-{summary}
-
-Full Text:
-{full_text}"
+            content_for_processing = f"Summary:\n{summary}\n\nFull Text:\n{full_text}"
 
             # Get the appropriate LLM (lazy loaded) and pass the content
             llm = self.get_llm(mode)

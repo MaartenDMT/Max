@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from api.schemas import (
     SummarizeYoutubeRequest,
     SummarizeYoutubeResponse,
@@ -14,13 +14,13 @@ from api.schemas import (
     WebsiteResearchResponse,
     WriterTaskRequest,
     WriterTaskResponse,
+    ErrorResponse,
 )
 from assistents.ai_assistent import AIAssistant
-from ai_tools.speech.text_to_speech import TTSModel
-from ai_tools.speech.speech_to_text import TranscribeFastModel
 import asyncio
 from utils.loggers import LoggerSetup  # Import LoggerSetup
-from typing import Optional  # Import Optional for type hinting
+from api.config import Settings
+from api.dependencies import get_ai_assistant, handle_response, get_settings
 
 router = APIRouter(prefix="/ai", tags=["AI Assistant"])
 
@@ -28,112 +28,152 @@ router = APIRouter(prefix="/ai", tags=["AI Assistant"])
 log_setup = LoggerSetup()
 logger = log_setup.get_logger("AIRouter", "ai_router.log")
 
-# Global instance for singleton pattern
-_ai_assistant_instance: Optional[AIAssistant] = (
-    None  # Use Optional for initial None assignment
-)
+# Router uses centralized dependencies from api.dependencies
 
 
-async def get_ai_assistant() -> AIAssistant:
-    global _ai_assistant_instance
-    if _ai_assistant_instance is None:
-        logger.info("Initializing AIAssistant for the first time.")
-        tts_model = TTSModel()
-        transcribe_model = TranscribeFastModel()
-        _ai_assistant_instance = AIAssistant(
-            tts_model=tts_model,
-            transcribe=transcribe_model,
-            speak=lambda x: x,
-            listen=lambda: "",
-        )
-    return _ai_assistant_instance
-
-
-@router.post("/summarize_youtube", response_model=SummarizeYoutubeResponse)
+@router.post("/summarize_youtube", response_model=SummarizeYoutubeResponse, responses={500: {"model": ErrorResponse}})
 async def summarize_youtube_endpoint(
     request: SummarizeYoutubeRequest,
     ai_assistant: AIAssistant = Depends(get_ai_assistant),
+    settings: Settings = Depends(get_settings),
 ):
     try:
         result = await ai_assistant._summarize_youtube_api(request.video_url)
-        return SummarizeYoutubeResponse(**result)
+        processed_result = handle_response(result)
+        return SummarizeYoutubeResponse(**processed_result)
+    except HTTPException:
+        # Re-raise HTTP exceptions to preserve status code
+        raise
     except Exception as e:
         logger.exception(f"Error in /summarize_youtube: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred: {str(e)}"
+        )
 
 
-@router.post("/chatbot", response_model=ChatbotResponse)
+@router.post("/chatbot", response_model=ChatbotResponse, responses={500: {"model": ErrorResponse}})
 async def chatbot_endpoint(
-    request: ChatbotRequest, ai_assistant: AIAssistant = Depends(get_ai_assistant)
+    request: ChatbotRequest,
+    ai_assistant: AIAssistant = Depends(get_ai_assistant),
+    settings: Settings = Depends(get_settings),
 ):
     try:
         result = await ai_assistant._handle_chatbot_api(
             request.mode, request.summary, request.full_text
         )
-        return ChatbotResponse(**result)
+        # Special handling for chatbot which uses "error" instead of "status"
+        if result.get("error"):
+            logger.error(f"Error in chatbot processing: {result.get('error')}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result.get("error", "Failed to process chatbot request")
+            )
+        return ChatbotResponse(status="success", result=result.get("result"))
+    except HTTPException:
+        # Re-raise HTTP exceptions to preserve status code
+        raise
     except Exception as e:
         logger.exception(f"Error in /chatbot: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred: {str(e)}"
+        )
 
 
-@router.post("/music_generation", response_model=MusicGenerationResponse)
+@router.post("/music_generation", response_model=MusicGenerationResponse, responses={500: {"model": ErrorResponse}})
 async def music_generation_endpoint(
     request: MusicGenerationRequest,
     ai_assistant: AIAssistant = Depends(get_ai_assistant),
+    settings: Settings = Depends(get_settings),
 ):
     try:
         result = await ai_assistant._make_loop_api(
             request.prompt, request.bpm, request.duration
         )
-        return MusicGenerationResponse(**result)
+        processed_result = handle_response(result)
+        return MusicGenerationResponse(**processed_result)
+    except HTTPException:
+        # Re-raise HTTP exceptions to preserve status code
+        raise
     except Exception as e:
         logger.exception(f"Error in /music_generation: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred: {str(e)}"
+        )
 
 
-@router.post("/research", response_model=ResearchResponse)
+@router.post("/research", response_model=ResearchResponse, responses={500: {"model": ErrorResponse}})
 async def research_endpoint(
-    request: ResearchRequest, ai_assistant: AIAssistant = Depends(get_ai_assistant)
+    request: ResearchRequest,
+    ai_assistant: AIAssistant = Depends(get_ai_assistant),
+    settings: Settings = Depends(get_settings),
 ):
     try:
         result = await ai_assistant._handle_research_api(request.query)
-        return ResearchResponse(**result)
+        processed_result = handle_response(result)
+        return ResearchResponse(**processed_result)
+    except HTTPException:
+        # Re-raise HTTP exceptions to preserve status code
+        raise
     except Exception as e:
         logger.exception(f"Error in /research: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred: {str(e)}"
+        )
 
 
-@router.post("/summarize_website", response_model=WebsiteSummarizeResponse)
+@router.post("/summarize_website", response_model=WebsiteSummarizeResponse, responses={500: {"model": ErrorResponse}})
 async def summarize_website_endpoint(
     request: WebsiteSummarizeRequest,
     ai_assistant: AIAssistant = Depends(get_ai_assistant),
+    settings: Settings = Depends(get_settings),
 ):
     try:
         result = await ai_assistant._learn_site_api(request.url, request.question)
-        return WebsiteSummarizeResponse(**result)
+        processed_result = handle_response(result)
+        return WebsiteSummarizeResponse(**processed_result)
+    except HTTPException:
+        # Re-raise HTTP exceptions to preserve status code
+        raise
     except Exception as e:
         logger.exception(f"Error in /summarize_website: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred: {str(e)}"
+        )
 
 
-@router.post("/website_research", response_model=WebsiteResearchResponse)
+@router.post("/website_research", response_model=WebsiteResearchResponse, responses={500: {"model": ErrorResponse}})
 async def website_research_endpoint(
     request: WebsiteResearchRequest,
     ai_assistant: AIAssistant = Depends(get_ai_assistant),
+    settings: Settings = Depends(get_settings),
 ):
     try:
         result = await ai_assistant._research_site_api(
             request.category, request.question
         )
-        return WebsiteResearchResponse(**result)
+        processed_result = handle_response(result)
+        return WebsiteResearchResponse(**processed_result)
+    except HTTPException:
+        # Re-raise HTTP exceptions to preserve status code
+        raise
     except Exception as e:
         logger.exception(f"Error in /website_research: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred: {str(e)}"
+        )
 
 
-@router.post("/writer_task", response_model=WriterTaskResponse)
+@router.post("/writer_task", response_model=WriterTaskResponse, responses={500: {"model": ErrorResponse}})
 async def writer_task_endpoint(
-    request: WriterTaskRequest, ai_assistant: AIAssistant = Depends(get_ai_assistant)
+    request: WriterTaskRequest,
+    ai_assistant: AIAssistant = Depends(get_ai_assistant),
+    settings: Settings = Depends(get_settings),
 ):
     try:
         result = await ai_assistant._handle_writer_task_api(
@@ -142,7 +182,14 @@ async def writer_task_endpoint(
             request.num_chapters,
             request.text_content,
         )
-        return WriterTaskResponse(**result)
+        processed_result = handle_response(result)
+        return WriterTaskResponse(**processed_result)
+    except HTTPException:
+        # Re-raise HTTP exceptions to preserve status code
+        raise
     except Exception as e:
         logger.exception(f"Error in /writer_task: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred: {str(e)}"
+        )

@@ -7,9 +7,9 @@ requires-python = "~=3.11.0"
 readme = "README.md"
 
 dependencies = [
-  "fastapi>=0.115",
-  "uvicorn[standard]>=0.30",
-  "pydantic>=2.7",
+  "fastapi>=0.116.1",
+  "uvicorn[standard]>=0.35.0",
+  "pydantic>=2.11.7",
   "pydantic-settings>=2.3",
   "httpx>=0.27",
   "python-dotenv>=1.0",
@@ -17,19 +17,24 @@ dependencies = [
   "scikit-learn>=1.3",
   "spacy>=3.7",
   "chromadb>=1.0",
-  "langchain-core>=0.3",
-  "langchain-community>=0.3",
-  "langchain-openai>=0.2",
-  "langchain-ollama>=0.1",
-  "langgraph>=0.2",
-  "sqlalchemy>=2.0",
-  "alembic>=1.13",
+  "langchain-core>=0.3.75",
+  "langchain-community>=0.3.29",
+  "langchain-openai>=0.3.32",
+  "langchain-ollama>=0.3.7",
+  "langchain-anthropic>=0.3.19",
+  "langchain-chroma>=0.1",
+  "langchain-google-genai>=0.1",
+  "langgraph>=0.6.6",
+  "crewai>=0.175.0",
+  "sqlalchemy>=2.0.43",
+  "alembic>=1.16.5",
   "python-decouple>=3.8",
   "asyncpg",
   "psycopg2-binary",
   "typing-extensions>=4.7.1",
   # Text splitters are a separate package in LC 0.3
   "langchain-text-splitters>=0.3",
+  "yt_dlp>=2023.12.30",
   # App utilities and adapters used across modules
   "termcolor>=2.4",
   "wikipedia>=1.4",
@@ -40,6 +45,7 @@ dependencies = [
   "pyjokes>=0.6",
   "pywhatkit>=5.4",
   "duckduckgo-search>=6.2",
+  "ddgs>=0.1",
   "einops>=0.7",
   # transformers 4.50 removes GenerationMixin from PreTrainedModel; pin below 4.50 for XTTS deps
   "transformers<4.50",
@@ -49,8 +55,8 @@ dependencies = [
   "simpleaudio>=1.0",
   "TTS>=0.22.0",
   # STT core deps (kept lazy at runtime for faster startup)
-  "openai-whisper>=20231117",
-  "faster-whisper>=1.0",
+  "openai-whisper>=20250625",
+  "faster-whisper>=1.2.0",
   "sounddevice>=0.4",
   "prompt-toolkit>=3.0",
   "pynput>=1.7",
@@ -92,6 +98,9 @@ python_files = ["tests/*.py"]
 environments = [
   "sys_platform == 'win32' and python_full_version >= '3.11' and python_full_version < '3.12'",
 ]
+
+[tool.uv.extra-build-dependencies]
+flash-attn = ["torch"]
 
 # By default don't resolve optional extras; none are defined besides 'dev'.
 default-groups = []

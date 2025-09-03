@@ -1,18 +1,18 @@
 import asyncio  # Import asyncio for to_thread
 import os
 import tempfile
+from operator import itemgetter
 
 import httpx
 import spacy
 import validators
-from langchain.chains import create_history_aware_retriever, create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_chroma import Chroma
 from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
-from langchain_community.embeddings import OllamaEmbeddings
-from langchain_community.llms.ollama import Ollama
-from langchain_community.vectorstores import Chroma
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables import RunnableLambda
+from langchain_ollama import ChatOllama, OllamaEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from utils.loggers import LoggerSetup
@@ -32,6 +32,28 @@ class WebPageSummarizer:
             "WebPageSummarizer", "web_page_summarizer.log"
         )
         self.logger.info("WebPageSummarizer initialized.")
+
+        # Lazy initialization for OllamaEmbeddings and Ollama LLM
+        self._embedding_model = None
+        self._llm_model = None
+
+    @property
+    def embedding_model(self):
+        if self._embedding_model is None:
+            self.logger.info("Lazy loading OllamaEmbeddings model.")
+            self._embedding_model = OllamaEmbeddings(model="nomic-embed-text")
+        return self._embedding_model
+
+    @property
+    def llm_model(self):
+        if self._llm_model is None:
+            self.logger.info("Lazy loading Ollama LLM model.")
+            # Use ChatOllama from langchain-ollama (recommended in LangChain 0.3+)
+            self._llm_model = ChatOllama(
+                model="gemma2:2b",
+                temperature=0.4,
+            )
+        return self._llm_model
 
     async def validate_url(self, url):
         """Validates the given URL asynchronously."""
@@ -132,25 +154,31 @@ class WebPageSummarizer:
     async def create_db(self, docs):
         """Create a vector store database from documents asynchronously."""
         self.logger.info("Creating the vector database.")
-        embedding = OllamaEmbeddings(model="nomic-embed-text")
         vector_store = await asyncio.to_thread(
-            Chroma.from_documents, docs, embedding=embedding
+            Chroma.from_documents, docs, embedding=self.embedding_model
         )
         return vector_store
 
     def create_chain(self, vector_store, summary_length="detailed"):
-        """Create a retrieval chain for processing questions with summary length control."""
-        model = Ollama(
-            model="gemma2:2b",
-            temperature=0.4,
-        )
-        self.logger.info("Creating a retrieval chain.")
+        """
+        Create an LCEL retrieval-augmented generation chain.
+
+        This replaces legacy create_stuff_documents_chain/create_history_aware_retriever
+        with a pure LCEL composition:
+          {"context": (rewrite_query -> retriever -> format_docs),
+           "input": passthrough,
+           "chat_history": passthrough}
+          | answer_prompt | llm | StrOutputParser
+        """
+        self.logger.info("Creating an LCEL retrieval chain.")
+
+        # Answering prompt (stuff-style over {context})
         if summary_length == "brief":
             prompt_text = "Provide a brief summary based on the context: {context}"
         else:
             prompt_text = "Provide a detailed summary based on the context: {context}"
 
-        prompt = ChatPromptTemplate.from_messages(
+        answer_prompt = ChatPromptTemplate.from_messages(
             [
                 ("system", prompt_text),
                 MessagesPlaceholder(variable_name="chat_history"),
@@ -158,36 +186,51 @@ class WebPageSummarizer:
             ]
         )
 
-        chain = create_stuff_documents_chain(llm=model, prompt=prompt)
-
-        retriever = vector_store.as_retriever(search_kwargs={"k": 3})
-
+        # History-aware query rewrite prompt
         retriever_prompt = ChatPromptTemplate.from_messages(
             [
                 MessagesPlaceholder(variable_name="chat_history"),
                 ("human", "{input}"),
                 (
                     "human",
-                    "Given the above conversation, generate a search query to look up in order to get information relevant to the conversation",
+                    "Given the above conversation, generate a concise search query to retrieve information relevant to the conversation.",
                 ),
             ]
         )
 
-        history_aware_retriever = create_history_aware_retriever(
-            llm=model, retriever=retriever, prompt=retriever_prompt
+        retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+
+        # LCEL subchain: (input, history) -> query string
+        rewrite_chain = {
+            "input": itemgetter("input"),
+            "chat_history": itemgetter("chat_history"),
+        } | retriever_prompt | self.llm_model | StrOutputParser()
+
+        # From query -> Documents
+        docs_chain = rewrite_chain | retriever
+
+        # Format documents into a single string for the answer prompt
+        format_docs = RunnableLambda(
+            lambda docs: "\n\n".join(getattr(d, "page_content", str(d)) for d in (docs or []))
         )
 
-        retrieval_chain = create_retrieval_chain(history_aware_retriever, chain)
+        # Final LCEL chain: build context, then answer
+        chain = {
+            "context": docs_chain | format_docs,
+            "input": itemgetter("input"),
+            "chat_history": itemgetter("chat_history"),
+        } | answer_prompt | self.llm_model | StrOutputParser()
 
-        return retrieval_chain
+        return chain
 
     async def process_chat(self, chain, question, chat_history):
-        """Process the chat by invoking the chain asynchronously."""
+        """Process the chat by invoking the LCEL chain asynchronously (returns a string)."""
         self.logger.info("Processing chat with the retrieval chain.")
         response = await asyncio.to_thread(
             chain.invoke, {"input": question, "chat_history": chat_history}
         )
-        return response["answer"]
+        # StrOutputParser returns a plain string
+        return response
 
     async def extract_keywords(self, text, num_keywords=5):
         """Extract keywords from the summarized text asynchronously."""

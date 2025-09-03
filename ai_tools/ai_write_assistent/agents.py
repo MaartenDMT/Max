@@ -7,10 +7,9 @@ except Exception:  # pragma: no cover - optional dep
     ollama = None
 from dotenv import load_dotenv
 
-try:
-    from langchain_ollama import ChatOllama  # optional
-except Exception:  # pragma: no cover - optional dep
-    ChatOllama = None
+from utils.llm_manager import LLMManager, LLMConfig # Added LLMConfig import
+from decouple import config as decouple_config
+
 try:
     from termcolor import colored  # optional
 except Exception:  # pragma: no cover - optional dep
@@ -20,24 +19,22 @@ except Exception:  # pragma: no cover - optional dep
 # Load environment variables from .env file
 load_dotenv(".env")
 
-model_ = (
-    ChatOllama(
-        model="llama3.1",
-        temperature=0.5,
-        num_predict=-1,
-    )
-    if ChatOllama is not None
-    else None
-)
-
-model = ollama.Client() if (ollama is not None and hasattr(ollama, "Client")) else None
+llm_config_data = {
+    "llm_provider": decouple_config("LLM_PROVIDER", default="ollama"),
+    "anthropic_api_key": decouple_config("ANTHROPIC_API_KEY", default=None),
+    "openai_api_key": decouple_config("OPENAI_API_KEY", default=None),
+    "openrouter_api_key": decouple_config("OPENROUTER_API_KEY", default=None),
+    "gemini_api_key": decouple_config("GEMINI_API_KEY", default=None),
+}
+llm_manager = LLMManager(LLMConfig(**llm_config_data)) # Instantiate LLMConfig
+model_ = llm_manager.get_llm()
 
 
-def get_facts(text):
+async def get_facts(text):
     # Replace placeholders like {{LONG_TEXT}} with real values
     if model_ is None:
         return "<json>{}\n</json>"
-    message = model_.invoke(
+    message = await model_.ainvoke(
         input=[
             {
                 "role": "user",
@@ -99,17 +96,17 @@ Enclose your JSON within <json> tags. Ensure your JSON is properly formatted and
     for chunk in message:
         if isinstance(chunk, tuple) and chunk[0] == "content":
             content = chunk[1]
-            print(colored(content, "green"), end="", flush=True)
             assistant_response += content
     return assistant_response
 
 
-def character_generator(facts, book_description):
+
+async def character_generator(facts, book_description):
     if model_ is None:
         return "<json>[]</json>"
     # Replace placeholders like {{TEXT}} with real values
 
-    message = model_.invoke(
+    message = await model_.ainvoke(
         input=[
             {
                 "role": "user",
@@ -164,17 +161,16 @@ Ensure your JSON is properly formatted and valid, be sure to double check it. Af
     for chunk in message:
         if isinstance(chunk, tuple) and chunk[0] == "content":
             content = chunk[1]
-            print(colored(content, "yellow"), end="", flush=True)
             assistant_response += content
     return assistant_response
 
 
-def plot_generator(facts, character_descriptions):
+async def plot_generator(facts, character_descriptions):
     # Replace placeholders like {{FACTS}} with real values
     if model_ is None:
         return "<json>{}</json>"
 
-    message = model_.invoke(
+    message = await model_.ainvoke(
         input=[
             {
                 "role": "user",
@@ -275,17 +271,16 @@ The plot should be detailed enough to serve as a comprehensive guide for writing
     for chunk in message:
         if isinstance(chunk, tuple) and chunk[0] == "content":
             content = chunk[1]
-            print(colored(content, "blue"), end="", flush=True)
             assistant_response += content
     return assistant_response
 
 
-def world_building_generator(facts, plot):
+async def world_building_generator(facts, plot):
     # Generate detailed world-building elements such as geography, history, cultures, and societies
     if model_ is None:
         return "<json>{}</json>"
 
-    message = model_.invoke(
+    message = await model_.ainvoke(
         input=[
             {
                 "role": "user",
@@ -378,17 +373,16 @@ Ensure that your world-building elements are detailed and contribute to the dept
     for chunk in message:
         if isinstance(chunk, tuple) and chunk[0] == "content":
             content = chunk[1]
-            print(colored(content, "cyan"), end="", flush=True)
             assistant_response += content
     return assistant_response
 
 
-def generate_magic_system(facts, plot):
+async def generate_magic_system(facts, plot):
     # Create a magic system that fits within the world and plot
     if model_ is None:
         return "<json>{}</json>"
 
-    message = model_.invoke(
+    message = await model_.ainvoke(
         input=[
             {
                 "role": "user",
@@ -440,15 +434,14 @@ Ensure that your magic system is unique, coherent, and contributes to the depth 
     for chunk in message:
         if isinstance(chunk, tuple) and chunk[0] == "content":
             content = chunk[1]
-            print(colored(content, "magenta"), end="", flush=True)
             assistant_response += content
     return assistant_response
 
 
-def generate_weapons_and_artifacts(facts, plot):
+async def generate_weapons_and_artifacts(facts, plot):
     # Create unique weapons and artifacts that fit within the world and plot
 
-    message = model_.invoke(
+    message = await model_.ainvoke(
         input=[
             {
                 "role": "user",
@@ -502,15 +495,14 @@ Ensure that your weapons and artifacts are unique and contribute meaningfully to
     for chunk in message:
         if isinstance(chunk, tuple) and chunk[0] == "content":
             content = chunk[1]
-            print(colored(content, "yellow"), end="", flush=True)
             assistant_response += content
     return assistant_response
 
 
-def generate_creatures_and_monsters(facts, plot):
+async def generate_creatures_and_monsters(facts, plot):
     # Create unique creatures and monsters for the story
 
-    message = model_.invoke(
+    message = await model_.ainvoke(
         input=[
             {
                 "role": "user",
@@ -560,15 +552,14 @@ Ensure that you create at least 5 unique creatures, but feel free to generate mo
     for chunk in message:
         if isinstance(chunk, tuple) and chunk[0] == "content":
             content = chunk[1]
-            print(colored(content, "green"), end="", flush=True)
             assistant_response += content
     return assistant_response
 
 
-def generate_fauna_and_flora(facts, plot):
+async def generate_fauna_and_flora(facts, plot):
     # Create unique fauna and flora for the story's world
 
-    message = model_.invoke(
+    message = await model_.ainvoke(
         input=[
             {
                 "role": "user",
@@ -621,15 +612,14 @@ Ensure that your fauna and flora are unique and contribute to the richness of th
     for chunk in message:
         if isinstance(chunk, tuple) and chunk[0] == "content":
             content = chunk[1]
-            print(colored(content, "cyan"), end="", flush=True)
             assistant_response += content
     return assistant_response
 
 
-def make_connections_between_plots_and_characters(plot, characters):
+async def make_connections_between_plots_and_characters(plot, characters):
     # Analyze and enhance connections between plots and characters
 
-    message = model_.invoke(
+    message = await model_.ainvoke(
         input=[
             {
                 "role": "user",
@@ -682,15 +672,14 @@ Ensure that your connections enhance the cohesiveness of the story and deepen th
     for chunk in message:
         if isinstance(chunk, tuple) and chunk[0] == "content":
             content = chunk[1]
-            print(colored(content, "magenta"), end="", flush=True)
             assistant_response += content
     return assistant_response
 
 
-def suggestions_and_thoughts_generator(facts, plot, characters):
+async def suggestions_and_thoughts_generator(facts, plot, characters):
     # Provide suggestions and thoughts to improve the story
 
-    message = model_.invoke(
+    message = await model_.ainvoke(
         input=[
             {
                 "role": "user",
@@ -743,12 +732,11 @@ Ensure that your feedback is constructive and aimed at improving the overall qua
     for chunk in message:
         if isinstance(chunk, tuple) and chunk[0] == "content":
             content = chunk[1]
-            print(colored(content, "blue"), end="", flush=True)
             assistant_response += content
     return assistant_response
 
 
-def agent_selector(facts):
+async def agent_selector(facts):
     """
     Analyzes the provided facts and decides which agents to run based on the content.
 
@@ -785,7 +773,7 @@ def agent_selector(facts):
     """
 
     # Invoke the model with the prompt
-    message = model_.invoke(
+    message = await model_.ainvoke(
         input=[{"role": "user", "content": [{"type": "text", "text": prompt}]}]
     )
 
@@ -801,7 +789,6 @@ def agent_selector(facts):
         if json_match:
             json_str = json_match.group(1).strip()
             agent_list = json.loads(json_str)
-            print(colored(agent_list, "blue"), end="", flush=True)
             return agent_list
         else:
             print("Error: No valid JSON found in the assistant's response.")

@@ -24,34 +24,76 @@ class MusicLoopGenerator:
         self.logger = log_setup.get_logger(
             "MusicLoopGenerator", "music_loop_generator.log"
         )
-        self.logger.info("MusicLoopGenerator initialized.")
+        self.logger.info("MusicLoopGenerator initialized with lazy loading.")
         """
-        Initialize the music loop generator with a pre-trained model.
+        Initialize the music loop generator with lazy model loading.
         You can specify the model and the device (e.g., 'cuda' or 'cpu').
         """
         self.device = (
             device if device else ("cuda" if torch.cuda.is_available() else "cpu")
         )
+        self.model_name = model_name
+        self._model = None
+        self._model_config = None
 
         # If stable-audio-tools is unavailable, degrade gracefully and log a warning.
         if not _STABLE_AUDIO_AVAILABLE:  # pragma: no cover - runtime path depends on install
             self.logger.warning(
                 "stable-audio-tools not installed; MusicLoopGenerator disabled."
             )
-            self.model = None
             # sensible defaults for downstream code that might inspect these
-            self.model_config = {"sample_rate": 44100, "sample_size": 1024}
-            self.sample_rate = self.model_config["sample_rate"]
-            self.sample_size = self.model_config["sample_size"]
-            return
+            self._model_config = {"sample_rate": 44100, "sample_size": 1024}
+            self._is_available = False
+        else:
+            self._is_available = True
 
-        # Load the pre-trained model - assuming get_pretrained_model can be blocking
-        self.model, self.model_config = get_pretrained_model(model_name)
-        self.sample_rate = self.model_config["sample_rate"]
-        self.sample_size = self.model_config["sample_size"]
+    def _load_model(self):
+        """Lazy load the model only when needed"""
+        if not self._is_available:
+            return False
 
-        # Send the model to the selected device
-        self.model = self.model.to(self.device)
+        if self._model is None:
+            self.logger.info(f"Lazy loading music generation model: {self.model_name}")
+            try:
+                # Load the pre-trained model
+                self._model, self._model_config = get_pretrained_model(self.model_name)
+                # Send the model to the selected device
+                self._model = self._model.to(self.device)
+                return True
+            except Exception as e:
+                self.logger.error(f"Failed to load music generation model: {str(e)}")
+                self._is_available = False
+                return False
+        return True
+
+    @property
+    def model(self):
+        """Property to access the model with lazy loading"""
+        if self._model is None:
+            self._load_model()
+        return self._model
+
+    @model.setter
+    def model(self, value):
+        # Allow tests to disable or inject a fake model
+        self._model = value
+
+    @property
+    def model_config(self):
+        """Property to access the model config with lazy loading"""
+        if self._model_config is None and self._is_available:
+            self._load_model()
+        return self._model_config
+
+    @property
+    def sample_rate(self):
+        """Property to access the sample rate"""
+        return self.model_config["sample_rate"]
+
+    @property
+    def sample_size(self):
+        """Property to access the sample size"""
+        return self.model_config["sample_size"]
 
     async def generate_loop(  # Marked as async
         self, prompt, bpm=140, duration=30, output_dir="data/audio/loops/", seed=42
@@ -66,6 +108,9 @@ class MusicLoopGenerator:
         - output_dir (str): Directory where the output audio file will be saved.
         - seed (int): Random seed for generation consistency.
         """
+        # Lazy load the model if it hasn't been loaded yet
+        if not self._load_model():
+            return None
         # Create conditioning with the prompt and duration
         conditioning = {
             "prompt": f"{bpm} BPM {prompt} loop",
@@ -108,11 +153,7 @@ class MusicLoopGenerator:
         await asyncio.to_thread(torchaudio.save, output_file, output, self.sample_rate)
         self.logger.info(f"Music loop saved: {output_file}")
 
-        return {
-            "status": "success",
-            "message": "Music loop generated successfully.",
-            "file_path": output_file,
-        }
+        return output_file
 
 
 # Example usage (removed interactive parts for API readiness)

@@ -43,8 +43,8 @@ class WriterAssistant:
                 self.logger.error("Book description or text content is missing.")
                 return "Error: Book description or text content is missing."
 
-            facts_response = process_json_in_chunks(get_facts, text_content)
-            facts = extract_and_save_json(
+            facts_response = await process_json_in_chunks(get_facts, text_content)
+            facts = await extract_and_save_json(
                 facts_response, "ai_tools/ai_write_assistent/json/facts.json"
             )
             if not facts:
@@ -52,10 +52,10 @@ class WriterAssistant:
                 return "Error: Failed to extract facts."
             facts = str(facts)
 
-            agents_to_run = str(agent_selector(facts)).lower()
+            agents_to_run = str(await agent_selector(facts)).lower()
 
-            characters_response = character_generator(facts, book_description)
-            characters = extract_and_save_json(
+            characters_response = await character_generator(facts, book_description)
+            characters = await extract_and_save_json(
                 characters_response,
                 "ai_tools/ai_write_assistent/json/characters.json",
             )
@@ -64,8 +64,8 @@ class WriterAssistant:
                 return "Error: Failed to generate characters."
             characters = str(characters)
 
-            plot_response = plot_generator(facts, characters)
-            plot = extract_and_save_json(
+            plot_response = await plot_generator(facts, characters)
+            plot = await extract_and_save_json(
                 plot_response, "ai_tools/ai_write_assistent/json/plot.json"
             )
             if not plot:
@@ -83,8 +83,8 @@ class WriterAssistant:
             )
 
             if "world building generator" in agents_to_run:
-                world_response = world_building_generator(facts, plot)
-                world = extract_and_save_json(
+                world_response = await world_building_generator(facts, plot)
+                world = await extract_and_save_json(
                     world_response, "ai_tools/ai_write_assistent/json/world.json"
                 )
                 if not world:
@@ -93,8 +93,8 @@ class WriterAssistant:
                 world = str(world)
 
             if "generate magic system" in agents_to_run:
-                magic_response = generate_magic_system(facts, plot)
-                magic_system = extract_and_save_json(
+                magic_response = await generate_magic_system(facts, plot)
+                magic_system = await extract_and_save_json(
                     magic_response, "ai_tools/ai_write_assistent/json/magic.json"
                 )
                 if not magic_system:
@@ -103,8 +103,8 @@ class WriterAssistant:
                 magic_system = str(magic_system)
 
             if "generate weapons and artifacts" in agents_to_run:
-                weapons_response = generate_weapons_and_artifacts(facts, plot)
-                weapons_and_artifacts = extract_and_save_json(
+                weapons_response = await generate_weapons_and_artifacts(facts, plot)
+                weapons_and_artifacts = await extract_and_save_json(
                     weapons_response, "ai_tools/ai_write_assistent/json/weapons.json"
                 )
                 if not weapons_and_artifacts:
@@ -113,8 +113,8 @@ class WriterAssistant:
                 weapons_and_artifacts = str(weapons_and_artifacts)
 
             if "generate creatures and monsters" in agents_to_run:
-                creatures_response = generate_creatures_and_monsters(facts, plot)
-                creatures_and_monsters = extract_and_save_json(
+                creatures_response = await generate_creatures_and_monsters(facts, plot)
+                creatures_and_monsters = await extract_and_save_json(
                     creatures_response,
                     "ai_tools/ai_write_assistent/json/creatures.json",
                 )
@@ -124,8 +124,8 @@ class WriterAssistant:
                 creatures_and_monsters = str(creatures_and_monsters)
 
             if "generate fauna and flora" in agents_to_run:
-                fauna_response = generate_fauna_and_flora(facts, plot)
-                fauna_and_flora = extract_and_save_json(
+                fauna_response = await generate_fauna_and_flora(facts, plot)
+                fauna_and_flora = await extract_and_save_json(
                     fauna_response, "ai_tools/ai_write_assistent/json/fauna.json"
                 )
                 if not fauna_and_flora:
@@ -134,10 +134,10 @@ class WriterAssistant:
                 fauna_and_flora = str(fauna_and_flora)
 
             if "make connections between plots and characters" in agents_to_run:
-                connections_response = make_connections_between_plots_and_characters(
+                connections_response = await make_connections_between_plots_and_characters(
                     plot, characters
                 )
-                connections = extract_and_save_json(
+                connections = await extract_and_save_json(
                     connections_response,
                     "ai_tools/ai_write_assistent/json/connections.json",
                 )
@@ -147,10 +147,10 @@ class WriterAssistant:
                 connections = str(connections)
 
             if "suggestions and thoughts generator" in agents_to_run:
-                suggestions_response = suggestions_and_thoughts_generator(
+                suggestions_response = await suggestions_and_thoughts_generator(
                     facts, plot, characters
                 )
-                suggestions = extract_and_save_json(
+                suggestions = await extract_and_save_json(
                     suggestions_response,
                     "ai_tools/ai_write_assistent/json/suggestions.json",
                 )

@@ -1,35 +1,51 @@
 import asyncio  # Import asyncio for to_thread
 import os
+from typing import TypedDict  # Added import
 
-try:
-    from langchain_ollama import ChatOllama  # optional
-except Exception:  # pragma: no cover - optional dependency
-    ChatOllama = None
-from utils.common.shared_summarize_utils import (clean_title, create_chain,
+from decouple import config as decouple_config
+from langchain_core.language_models import BaseLanguageModel  # Added import
+
+from ai_tools.speech.speech_to_text import TranscribeFastModel  # Added import
+from utils.common.shared_summarize_utils import (clean_title,
+                                                 create_chain_lcel,
                                                  download_audio,
                                                  get_video_info, meta_data,
                                                  process_chat, save_md,
                                                  save_text, split_text,
                                                  transcribe_audio)
+from utils.llm_manager import LLMConfig, LLMManager  # Added LLMConfig import
 from utils.loggers import LoggerSetup
+
+llm_config_data = {
+    "llm_provider": decouple_config("LLM_PROVIDER", default="ollama"),
+    "anthropic_api_key": decouple_config("ANTHROPIC_API_KEY", default=None),
+    "openai_api_key": decouple_config("OPENAI_API_KEY", default=None),
+    "openrouter_api_key": decouple_config("OPENROUTER_API_KEY", default=None),
+    "gemini_api_key": decouple_config("GEMINI_API_KEY", default=None),
+}
+llm_manager = LLMManager(LLMConfig(**llm_config_data)) # Instantiate LLMConfig
+
 
 MAX_CHUNK_SIZE = 2048
 
 
+class SummarizeResult(TypedDict):
+    status: str
+    full_text: str
+    summary: str
+    summary_file: str
+
+
 class YouTubeSummarizer:
     def __init__(
-        self, transcribe_model, download_path="data/audio/", output_path="data/text/"
+        self, transcribe_model: TranscribeFastModel, download_path: str = "data/audio/", output_path: str = "data/text/"
     ):
-        self.transcribe_model = transcribe_model
-        self.download_path = download_path
-        self.output_path = output_path
-        self.audio_filename = os.path.join(self.download_path, "audio.wav")
+        self.transcribe_model: TranscribeFastModel = transcribe_model
+        self.download_path: str = download_path
+        self.output_path: str = output_path
+        self.audio_filename: str = os.path.join(self.download_path, "audio.wav")
 
-        self.llm = (
-            ChatOllama(model="llama3.1", temperature=0.2, num_predict=-1)
-            if ChatOllama is not None
-            else None
-        )
+        self.llm: BaseLanguageModel = llm_manager.get_llm()
 
         log_setup = LoggerSetup()
         self.logger = log_setup.get_logger(
@@ -39,7 +55,7 @@ class YouTubeSummarizer:
 
     async def summarize(
         self, video_url: str, summary_length: str = "detailed"
-    ) -> dict:  # Marked as async
+    ) -> SummarizeResult:  # Marked as async
         try:
             self.logger.info(f"Summarization started for {video_url}")
             video_info = await asyncio.to_thread(get_video_info, video_url, self.logger)
@@ -90,7 +106,8 @@ class YouTubeSummarizer:
             )
             self.logger.info(f"Transcription split into {len(chunks)} chunks.")
 
-            chain = await asyncio.to_thread(create_chain, self.llm, summary_length)
+            # Use LCEL-based chain wrapper (compatible with existing process_chat)
+            chain = await asyncio.to_thread(create_chain_lcel, self.llm, summary_length)
             if not chain:
                 return {
                     "status": "error",
@@ -141,5 +158,4 @@ class YouTubeSummarizer:
             }
         finally:
             if await asyncio.to_thread(os.path.exists, self.audio_filename):
-                await asyncio.to_thread(os.remove, self.audio_filename)
                 await asyncio.to_thread(os.remove, self.audio_filename)

@@ -8,10 +8,18 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import tool
 
-try:
-    from langchain_ollama import ChatOllama  # optional
-except Exception:  # pragma: no cover - optional dependency
-    ChatOllama = None
+from utils.llm_manager import LLMManager, LLMConfig # Added LLMConfig import
+from decouple import config as decouple_config
+
+llm_config_data = {
+    "llm_provider": decouple_config("LLM_PROVIDER", default="ollama"),
+    "anthropic_api_key": decouple_config("ANTHROPIC_API_KEY", default=None),
+    "openai_api_key": decouple_config("OPENAI_API_KEY", default=None),
+    "openrouter_api_key": decouple_config("OPENROUTER_API_KEY", default=None),
+    "gemini_api_key": decouple_config("GEMINI_API_KEY", default=None),
+}
+llm_manager = LLMManager(LLMConfig(**llm_config_data)) # Instantiate LLMConfig
+
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -47,7 +55,7 @@ class AIResearchTools:
 
     def create_agentchain(self):
         """Create an agent chain using multiple tools."""
-        model = ChatOllama(model="llama3.1", temperature=0.7) if ChatOllama is not None else None
+        model = llm_manager.get_llm()
         prompt = ChatPromptTemplate.from_messages(
             [
                 ("system", "You are a helpful AI researcher."),
@@ -73,7 +81,7 @@ class AIResearchTools:
             if self.agentExecutor is None:
                 self.create_agentchain()
             if self.agentExecutor is None:
-                return {"error": "LLM not available; install langchain_ollama to enable research agent."}
+                return {"error": "LLM not available or failed to initialize research agent."}
             response = self.agentExecutor.invoke(
                 {"input": user_input, "chat_history": self.chat_history}
             )

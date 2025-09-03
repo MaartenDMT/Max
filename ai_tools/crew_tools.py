@@ -75,10 +75,13 @@ class WebPageResearcherTool(BaseTool):
             from ai_tools.ai_webpage_research_agent import \
                 AIWebPageResearchAgent
 
-            web_researcher_instance = AIWebPageResearchAgent()
-            web_researcher_instance.setup_research(category)
-            response = web_researcher_instance.process_chat(question)
-            return json.dumps({"research_result": response})
+            async def _async_run_logic():
+                web_researcher_instance = AIWebPageResearchAgent()
+                await web_researcher_instance.setup_research(category)
+                response = await web_researcher_instance.process_chat(question)
+                return json.dumps({"research_result": response})
+
+            return asyncio.run(_async_run_logic())
         except Exception as e:
             return json.dumps({"error": f"Error performing web research: {str(e)}"})
 
